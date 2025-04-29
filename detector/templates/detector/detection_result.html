@@ -1,0 +1,202 @@
+{% extends 'detector/base.html' %}
+{% load static %}
+
+{% block title %}辨識結果 - 草莓病蟲害辨識{% endblock %}
+
+{% block content %}
+    {# --- 不再有 <div class="container animate-in"> --- #}
+    {# --- 可以加上特定於此頁的 wrapper，如果需要特殊佈局 --- #}
+    <div class="result-page-wrapper animate-in"> {# 將 animate-in 加到這裡 #}
+
+        <div class="bg-decoration"></div>
+        <h1 style="font-size: 32px; color: var(--primary-color); margin-bottom: 25px; position: relative; z-index: 1; border-bottom: 2px solid #f0f0f0; padding-bottom: 15px;">草莓病蟲害辨識結果</h1>
+
+        {% if error_message %}
+            <div class="error" style="background-color: rgba(231, 76, 60, 0.1); color: #e74c3c; padding: 15px; border-radius: var(--border-radius); margin-bottom: 20px; border-left: 4px solid #e74c3c; font-weight: 500;">
+                <strong>處理過程中發生錯誤：</strong>{{ error_message }}
+            </div>
+        {% else %}
+            {# --- 顯示圖片 (使用 Bootstrap Grid) --- #}
+            <div class="row g-3 mb-4 justify-content-around"> {# 使用 Bootstrap Grid 排列 #}
+                {% if uploaded_image_url %}
+                <div class="col-md-6"> {# 在中等螢幕以上各佔一半 #}
+                    {# --- 使用你原本的 image-box 樣式 (從 CSS 檔案載入) --- #}
+                    <div class="image-box">
+                        <h3>原始上傳圖片</h3>
+                        <img src="{{ uploaded_image_url }}" alt="原始上傳圖片">
+                    </div>
+                </div>
+                {% endif %}
+
+                {% if annotated_image_url %}
+                <div class="col-md-6">
+                    <div class="image-box">
+                        <h3>標註結果 (<span id="threshold_display_label">信心度 > 0.50</span>)</h3>
+                        <img src="{{ annotated_image_url }}" alt="辨識結果圖">
+                    </div>
+                </div>
+                {% elif uploaded_image_url %}
+                <div class="col-md-6">
+                    <div class="image-box">
+                        <h3>標註結果</h3>
+                        <p>未偵測到符合條件的物件。</p>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+
+            {# --- 控制面板 - 篩選和閾值設定 --- #}
+            <div class="control-panel">
+                <h2>調整顯示設定</h2>
+                <div class="filter-section">
+                    <div class="filter-item">
+                        <label for="class_filter">篩選類別：</label>
+                        <select id="class_filter">
+                            <option value="all">全部顯示</option>
+                            {% for name in class_names %}
+                                <option value="{{ name }}">{{ name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="filter-item">
+                        <label for="confidence_threshold_slider">信心度閾值：</label>
+                        <input type="range" id="confidence_threshold_slider" min="0.05" max="1.0" step="0.05" value="0.5">
+                        <span id="threshold_value_display" class="threshold-display">0.50</span>
+                    </div>
+                </div>
+            </div>
+
+            {# --- 顯示文字結果 --- #}
+            <h2 style="margin-top: 30px;">偵測結果列表</h2>
+            {% if results %}
+                <ul class="results-list" id="resultsList">
+                    {% for res in results %}
+                        <li data-class="{{ res.class }}" data-confidence="{{ res.confidence_float }}">
+                            <span class="class-badge">{{ res.class }}</span>
+                            <span class="confidence-badge">信心度: {{ res.confidence_str }}</span>
+                        </li>
+                    {% empty %}
+                        <li class="no-results">未偵測到任何物件（高於設定的信心閾值）。</li>
+                    {% endfor %}
+                    {# JS 會添加的無結果提示 #}
+                    <li class="no-filter-result" style="padding: 15px; text-align: center; color: #666; background-color: transparent; border-bottom: none; font-style: italic; display: none;">沒有符合目前篩選條件的物件。</li>
+                </ul>
+            {% else %}
+                <div class="no-results">
+                    {# ... SVG ... #}
+                    <p>未偵測到任何物件。</p>
+                </div>
+            {% endif %}
+        {% endif %} {# 結束 error_message 的 if/else #}
+
+        <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
+        <div style="text-align: center;"> {# 按鈕置中 #}
+            <a href="{% url 'detector:upload_detect' %}" class="back-button">上傳新的圖片</a> {# 改了按鈕文字 #}
+        </div>
+
+        <div class="footer">
+            草莓病蟲害辨識系統  2025
+        </div>
+
+        <svg class="strawberry-icon" style="position: absolute; bottom: 20px; right: 20px; width: 60px; height: 60px; opacity: 0.2; z-index: 0;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+            <path d="M272 220.8c8.7-14.9 15.9-30.8 25.4-45.2 13.4-20.4 29.9-37.4 53.7-42.8 23.7-5.3 44 1.9 60.4 18.2 5.9 6 10.3 7.5 18.2 4.7 57.9-20.2 110.5 11.6 117.1 72.2 5.8 52.6-19.2 100.4-50.4 143.4-20.9 28.8-47.2 52.3-75.2 74.2-13.7 10.7-29.1 14.9-46.6 14.9-24.1 0-48.1.1-72.2 0-36.6-.1-68.5-15.8-96.7-39.1-19.9-16.4-38.1-35-53.6-55.8-23.9-32.1-43.8-66.5-46.8-107.8-1.4-19.8 2.8-38.8 13.4-55.8 11.1-17.9 27.2-29.7 48-34 24.3-5 46.4.8 66.2 14.4 6.4 4.4 10.5 4.4 16.4-.2 13.9-10.8 28.8-16.3 46.7-14 18.6 2.5 33.3 11.6 43 27.2 2.7 4.3 4.6 9.1 7.4 14.5z" fill="#e83e8c" />
+        </svg>
+
+    </div> {# result-page-wrapper 結束 #}
+{% endblock %}
+
+
+{% block scripts %}
+    {{ block.super }} {# 包含 base.html 的 JS (例如 Bootstrap JS) #}
+    {# --- 用於結果頁面篩選的 JavaScript --- #}
+    <script>
+        // 這部分的 JavaScript 程式碼保持不變，
+        // 因為它依賴的 HTML 元素 ID (class_filter, threshold_slider, resultsList)
+        // 和 data-* 屬性都還在。
+        document.addEventListener('DOMContentLoaded', function() {
+            const classFilterSelect = document.getElementById('class_filter');
+            const thresholdSlider = document.getElementById('confidence_threshold_slider');
+            const thresholdDisplay = document.getElementById('threshold_value_display');
+            const thresholdLabel = document.getElementById('threshold_display_label');
+            const resultsList = document.getElementById('resultsList');
+
+            if (!resultsList) {
+                console.log("結果列表元素 'resultsList' 未找到，無需設定篩選功能。");
+                if (thresholdSlider && thresholdDisplay) thresholdDisplay.textContent = parseFloat(thresholdSlider.value).toFixed(2);
+                if (thresholdSlider && thresholdLabel) thresholdLabel.textContent = `信心度 > ${parseFloat(thresholdSlider.value).toFixed(2)}`;
+                if (thresholdSlider && thresholdDisplay && thresholdLabel) {
+                    thresholdSlider.addEventListener('input', function() {
+                        const thresholdText = parseFloat(this.value).toFixed(2);
+                        thresholdDisplay.textContent = thresholdText;
+                        thresholdLabel.textContent = `信心度 > ${thresholdText}`;
+                    });
+                }
+                return;
+            }
+
+            const listItems = resultsList.querySelectorAll('li[data-class][data-confidence]');
+            const noResultInitialItem = resultsList.querySelector('.no-results');
+            let noResultItem = resultsList.querySelector('.no-filter-result');
+
+            if (!classFilterSelect || !thresholdSlider || !thresholdDisplay || !thresholdLabel) {
+                console.warn("警告：缺少篩選控制項，篩選功能可能不完整。");
+            }
+
+            function applyConfidenceStyles() {
+                listItems.forEach(function(item) {
+                    const confidenceValue = parseFloat(item.getAttribute('data-confidence'));
+                    const confidenceBadge = item.querySelector('.confidence-badge');
+                    if (confidenceBadge) {
+                        confidenceBadge.classList.remove('confidence-high', 'confidence-medium', 'confidence-low');
+                        if (confidenceValue >= 0.7) confidenceBadge.classList.add('confidence-high');
+                        else if (confidenceValue >= 0.4) confidenceBadge.classList.add('confidence-medium');
+                        else confidenceBadge.classList.add('confidence-low');
+                    }
+                });
+            }
+
+            function filterResults() {
+                const selectedClass = classFilterSelect ? classFilterSelect.value : 'all';
+                const selectedThreshold = thresholdSlider ? parseFloat(thresholdSlider.value) : 0.0;
+
+                if (thresholdDisplay) thresholdDisplay.textContent = selectedThreshold.toFixed(2);
+                if (thresholdLabel) thresholdLabel.textContent = `信心度 > ${selectedThreshold.toFixed(2)}`;
+
+                let visibleCount = 0;
+                listItems.forEach(function(item) {
+                    const itemClass = item.getAttribute('data-class');
+                    const itemConfidence = parseFloat(item.getAttribute('data-confidence'));
+                    if (itemConfidence >= selectedThreshold && (selectedClass === 'all' || itemClass === selectedClass)) {
+                        item.style.display = 'flex';
+                        visibleCount++;
+                    } else {
+                        item.style.display = 'none';
+                    }
+                });
+
+                if (noResultInitialItem) noResultInitialItem.style.display = 'none';
+
+                if (!noResultItem) {
+                    noResultItem = document.createElement('li');
+                    noResultItem.textContent = '沒有符合目前篩選條件的物件。';
+                    noResultItem.className = 'list-group-item text-muted text-center no-filter-result';
+                    noResultItem.style.display = 'none';
+                    resultsList.appendChild(noResultItem);
+                }
+
+                if (visibleCount === 0 && listItems.length > 0) {
+                    noResultItem.style.display = 'block';
+                } else {
+                    noResultItem.style.display = 'none';
+                }
+            }
+
+            if (classFilterSelect) classFilterSelect.addEventListener('change', filterResults);
+            if (thresholdSlider) thresholdSlider.addEventListener('input', filterResults);
+
+            applyConfidenceStyles();
+            filterResults();
+            console.log("篩選器的事件監聽器已設定。");
+        });
+    </script>
+{% endblock %}

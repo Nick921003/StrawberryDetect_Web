@@ -1,0 +1,14 @@
+path: C:/Users/pjw92/Desktop/Programming/YOLO11/data4
+train: ../train/images
+val: ../valid/images
+test: ../test/images
+
+nc: 2
+names: ['angular leaf spot', 'healthy']
+
+roboflow:
+  workspace: p1-oa5v7
+  project: my-first-project-i8tmo
+  version: 3
+  license: CC BY 4.0
+  url: https://universe.roboflow.com/p1-oa5v7/my-first-project-i8tmo/dataset/3

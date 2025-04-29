@@ -1,0 +1,49 @@
+{% extends 'detector/base.html' %}
+{% load static %}
+
+{% block title %}辨識歷史紀錄 - 草莓病蟲害辨識{% endblock %}
+
+{% block content %}
+    <div class="history-page-wrapper animate-in"> {# 使用 CSS 動畫 (可選) #}
+        <h1 class="mb-4">辨識歷史紀錄</h1>
+        <p class="text-muted">{{ limit_notice }}</p> {# 顯示提示訊息 #}
+
+        {% if records %}
+            <div class="list-group shadow-sm"> {# 使用 Bootstrap List Group #}
+                {% for record in records %}
+                    {# 每個紀錄都是一個連結，指向該紀錄的詳細頁面 (URL 名稱設為 'detection_detail') #}
+                    {# 我們將紀錄的 id (主鍵) 作為參數傳遞給 URL #}
+                    <a href="{% url 'detector:detection_detail' record_id=record.id %}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                        <span>
+                            結果 {{ forloop.counter }} (上傳於: {{ record.uploaded_at|date:"Y-m-d H:i" }})
+                            {# forloop.counter 會產生 1, 2, 3... 的序號 #}
+                            {# |date:"Y-m-d H:i" 是 Django 模板過濾器，格式化日期時間 #}
+                        </span>
+                        <span class="badge bg-primary rounded-pill">
+                            {% if record.results_data %}
+                                偵測到 {{ record.results_data|length }} 個物件
+                                {# |length 過濾器計算列表長度 #}
+                            {% else %}
+                                無結果數據
+                            {% endif %}
+                        </span>
+                    </a>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="alert alert-info" role="alert">
+                目前沒有任何辨識紀錄。
+            </div>
+        {% endif %}
+
+        <hr class="my-4">
+        <div class="text-center">
+            <a href="{% url 'detector:upload_detect' %}" class="btn btn-secondary">返回上傳頁面</a>
+        </div>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+    {{ block.super }}
+    {# 這個頁面目前不需要額外的 JavaScript #}
+{% endblock %}

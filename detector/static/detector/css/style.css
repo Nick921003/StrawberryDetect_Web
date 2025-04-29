@@ -1,0 +1,451 @@
+/* detector/static/detector/css/style.css */
+:root {
+    --primary-color: #e83e8c; /* 粉紅色系 */
+    --primary-dark: #c71f76;
+    --secondary-color: #4caf50; /* 綠色系 */
+    --light-color: #f8f9fa;    /* 淺灰 */
+    --dark-color: #333333;     /* 深灰 (文字) */
+    --border-radius: 12px;
+    --box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: 'Arial', 'Microsoft JhengHei', sans-serif; /* 微軟正黑體備用 */
+    background-color: #f0f8f2; /* 淡綠色背景 */
+    color: var(--dark-color);
+    line-height: 1.6;
+    padding-top: 20px;    /* base.html 控制 */
+    padding-bottom: 20px; /* base.html 控制 */
+    /* 移除 display:flex 等，這些應由 base.html 控制或不需要 */
+}
+
+/* --- 通用元素 --- */
+h1 {
+    font-size: 28px; /* 統一尺寸，可在特定頁面微調 */
+    color: var(--primary-color);
+    margin-bottom: 25px;
+    position: relative;
+    z-index: 1;
+    border-bottom: 2px solid #f0f0f0;
+    padding-bottom: 15px;
+}
+
+h2 {
+    font-size: 24px;
+    color: var(--dark-color);
+    margin: 25px 0 15px;
+    position: relative;
+    z-index: 1;
+}
+
+h3 {
+    font-size: 18px;
+    color: var(--dark-color);
+    margin-bottom: 12px;
+    font-weight: 600; /* 稍微加粗 */
+}
+
+a {
+    color: var(--primary-color); /* 連結顏色 */
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
+    color: var(--primary-dark);
+}
+
+hr {
+    border: none;
+    border-top: 1px solid #eee;
+    margin: 30px 0;
+}
+
+button, .back-button { /* 合併按鈕樣式 */
+    display: inline-block;
+    padding: 12px 24px;
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: var(--border-radius);
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 5px rgba(232, 62, 140, 0.3);
+    text-align: center;
+    text-decoration: none; /* For link styled as button */
+}
+
+button:hover, .back-button:hover {
+    background-color: var(--primary-dark);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(232, 62, 140, 0.4);
+    text-decoration: none;
+    color: white;
+}
+
+button:active {
+    transform: translateY(0);
+}
+
+.error {
+    color: #e74c3c;
+    margin-top: 20px;
+    padding: 15px;
+    border-radius: var(--border-radius);
+    background-color: rgba(231, 76, 60, 0.1);
+    border-left: 4px solid #e74c3c;
+    font-weight: 500;
+}
+
+.footer {
+    margin-top: 40px;
+    text-align: center;
+    font-size: 14px;
+    color: #777;
+}
+
+.strawberry-icon { /* 讓兩個頁面的圖示一致 */
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
+    width: 50px; /* 取個中間值 */
+    height: 50px;
+    opacity: 0.15; /* 稍微調暗一點 */
+    z-index: 0;
+}
+
+.bg-decoration { /* 背景裝飾 */
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 180px; /* 取個中間值 */
+    height: 180px;
+    background-color: rgba(232, 62, 140, 0.05);
+    border-radius: 0 0 0 100%;
+    z-index: 0;
+}
+
+
+/* --- Upload Form Specific Styles --- */
+.upload-container { /* 原本 upload_form.html 的 container 樣式 */
+     max-width: 700px; /* 限制上傳表單容器寬度 */
+    width: 100%;
+    background-color: white;
+    padding: 40px;
+    border-radius: var(--border-radius);
+    box-shadow: var(--box-shadow);
+    position: relative; /* 為了 bg-decoration 定位 */
+    overflow: hidden;
+    margin: 20px auto; /* 水平置中 */
+}
+
+.form-group {
+    margin-bottom: 25px;
+    position: relative;
+    z-index: 1;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 10px;
+    font-weight: 600;
+    color: var(--dark-color);
+}
+
+.file-input-container {
+    position: relative;
+    border: 2px dashed #ddd;
+    border-radius: var(--border-radius);
+    padding: 30px;
+    text-align: center;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    background-color: var(--light-color);
+}
+
+.file-input-container:hover {
+    border-color: var(--primary-color);
+    background-color: rgba(232, 62, 140, 0.05);
+}
+
+.file-input-container svg {
+    width: 48px;
+    height: 48px;
+    margin-bottom: 15px;
+    fill: var(--primary-color);
+}
+
+.file-input-container p {
+    margin: 10px 0 0;
+    color: #777;
+    font-size: 14px; /* 稍微縮小 */
+}
+
+.file-input-container input[type="file"] { /* Specificity for hidden input */
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    top: 0;
+    left: 0;
+    opacity: 0;
+    cursor: pointer;
+}
+
+.file-name {
+    margin-top: 15px;
+    font-size: 14px;
+    color: var(--dark-color);
+    display: none; /* 預設隱藏 */
+    text-align: center; /* 置中 */
+    padding: 5px;
+    background-color: #e9ecef; /* 加個背景 */
+    border-radius: 5px;
+}
+
+.upload-container button { /* 限制按鈕寬度只對上傳頁生效 */
+     width: 100%;
+}
+
+/* --- Result Page Specific Styles --- */
+.result-container { /* 原本 detection_result.html 的 container 樣式 */
+    max-width: 1200px; /* 允許結果頁更寬 */
+    margin: 0 auto;
+    background-color: white;
+    padding: 30px;
+    border-radius: var(--border-radius);
+    box-shadow: var(--box-shadow);
+    position: relative;
+    overflow: hidden;
+}
+
+.image-container {
+    display: flex;
+    justify-content: center; /* 改為 center 可能更常用 */
+    flex-wrap: wrap;
+    gap: 30px;
+    margin: 30px 0;
+    position: relative;
+    z-index: 1;
+}
+
+.image-box {
+    flex: 1;
+    min-width: 300px;
+    max-width: 550px;
+    background: white;
+    border-radius: var(--border-radius);
+    overflow: hidden;
+    box-shadow: var(--box-shadow);
+    transition: transform 0.3s ease;
+    border: 1px solid #eee; /* 從 detection_result.html 移過來 */
+}
+
+.image-box:hover {
+    transform: translateY(-5px);
+}
+
+.image-box h3 {
+    background-color: #f8f9fa;
+    padding: 15px;
+    margin: 0;
+    border-bottom: 1px solid #eee;
+    text-align: center; /* Add text-align */
+}
+
+.image-box img {
+    max-width: 100%;
+    height: auto;
+    max-height: 450px; /* 比之前稍大 */
+    display: block;
+    margin: 0 auto;
+    padding: 15px;
+    object-fit: contain;
+}
+
+.image-box p {
+    padding: 15px;
+    text-align: center;
+    color: #666;
+}
+
+.control-panel {
+    background-color: #f8f9fa;
+    border-radius: var(--border-radius);
+    padding: 20px;
+    margin-bottom: 25px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+    position: relative;
+    z-index: 1;
+}
+
+.filter-section {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.filter-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 200px;
+}
+
+.filter-item label {
+    font-weight: 600;
+    white-space: nowrap;
+    margin-bottom: 0; /* 移除 label 預設的 margin */
+}
+
+select {
+    padding: 8px 12px; /* 調整 padding */
+    border-radius: var(--border-radius);
+    border: 1px solid #ddd;
+    background-color: white;
+    font-size: 15px; /* 調整字體 */
+    cursor: pointer;
+    outline: none;
+    transition: border-color 0.3s;
+    width: auto; /* 改為自動寬度 */
+    flex-grow: 1; /* 允許伸展 */
+}
+
+select:focus {
+    border-color: var(--primary-color);
+}
+
+input[type="range"] {
+    flex-grow: 1; /* 允許伸展 */
+    max-width: 300px;
+    cursor: pointer;
+    accent-color: var(--primary-color); /* For Chrome/Edge */
+    /* Add styles for Firefox/Safari if needed */
+}
+
+.threshold-display {
+    font-weight: bold;
+    min-width: 45px; /* 加寬一點 */
+    text-align: center;
+    color: var(--primary-color);
+    background-color: #e9ecef; /* 加個背景 */
+    padding: 5px 8px;
+    border-radius: 5px;
+}
+
+.results-list {
+    list-style: none;
+    padding: 0;
+    border-radius: var(--border-radius);
+    overflow: hidden;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+    position: relative;
+    z-index: 1;
+}
+
+.results-list li {
+    padding: 12px 15px; /* 調整 padding */
+    border-bottom: 1px solid #eee;
+    background-color: white;
+    transition: background-color 0.3s;
+    display: flex; /* Use flex for better alignment */
+    align-items: center;
+    flex-wrap: wrap; /* Allow wrapping on small screens */
+    gap: 10px; /* Add gap */
+}
+
+.results-list li:last-child {
+    border-bottom: none;
+}
+
+.results-list li:hover {
+    background-color: #f9f9f9;
+}
+
+.class-badge {
+    padding: 5px 10px; /* 調整 padding */
+    border-radius: 20px;
+    background-color: rgba(232, 62, 140, 0.1);
+    color: var(--primary-color);
+    font-weight: 600;
+    margin-right: auto; /* 推到右邊 */
+    /* min-width: 120px; */ /* 移除最小寬度 */
+    text-align: center;
+    font-size: 14px; /* 調整字體 */
+}
+
+.confidence-badge {
+    padding: 5px 10px; /* 調整 padding */
+    border-radius: 20px;
+    font-weight: 600;
+    font-size: 14px; /* 調整字體 */
+}
+
+.confidence-high {
+    background-color: rgba(76, 175, 80, 0.2);
+    color: #2e7d32;
+}
+.confidence-medium {
+    background-color: rgba(255, 193, 7, 0.2);
+    color: #ff8f00;
+}
+.confidence-low {
+    background-color: rgba(244, 67, 54, 0.2);
+    color: #c62828;
+}
+
+.no-results { /* 用於 li 或 div */
+    padding: 30px;
+    text-align: center;
+    color: #666;
+    background-color: #f9f9f9;
+    border-radius: var(--border-radius);
+    border: 1px dashed #ddd; /* 加個虛線框 */
+    margin-top: 15px; /* 加點間距 */
+}
+/* JS 控制的無結果提示 */
+.results-list li.no-filter-result {
+    padding: 15px;
+    text-align: center;
+    color: #666;
+    background-color: transparent; /* 不要背景色 */
+    border-bottom: none;
+    font-style: italic;
+    display: none; /* 預設隱藏 */
+ }
+
+/* 動畫效果 */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); } /* 調整 Y 位移 */
+    to { opacity: 1; transform: translateY(0); }
+}
+.animate-in {
+    animation: fadeIn 0.6s ease-out forwards; /* 稍微放慢 */
+}
+
+/* 響應式設計 */
+@media (max-width: 768px) {
+    .result-container, .upload-container { /* 應用到兩個容器 */
+        padding: 20px 15px;
+    }
+    .image-box {
+        min-width: 90%; /* 手機上佔滿寬度 */
+        max-width: 100%;
+    }
+    h1 { font-size: 24px; }
+    h2 { font-size: 20px; }
+    .filter-section { flex-direction: column; align-items: stretch; gap: 15px;} /* 手機上篩選器垂直排列 */
+    .filter-item { min-width: 100%; }
+    select, input[type="range"] { width: 100%; max-width: none; } /* 篩選器佔滿寬度 */
+    .results-list li { flex-direction: column; align-items: flex-start; } /* 列表項垂直排列 */
+    .class-badge { margin-right: 0; margin-bottom: 5px; }
+}

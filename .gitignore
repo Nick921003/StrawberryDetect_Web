@@ -1,0 +1,36 @@
+# --- Project Specific ---
+# Python Virtual Environment
+venv/
+
+# Environment variables
+.env
+
+# Media Files (User uploads, generated content etc.) - Adjust if your media handling is different
+media/
+
+# --- Python / Django ---
+# Byte-compiled / optimized files
+__pycache__/
+*.py[cod]
+
+# Database files (if using SQLite for development)
+db.sqlite3
+db.sqlite3-journal
+
+# Log files
+*.log
+
+# --- OS / Editor specific ---
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+
+# IDEs / Editors
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+
+# Add other ignores below if needed

@@ -1,0 +1,102 @@
+{% extends 'detector/base.html' %}
+{% load static %} {# 雖然此模板沒直接用，但加上是好習慣 #}
+
+{% block title %}上傳圖片 - 草莓病蟲害辨識{% endblock %}
+
+{% block content %}
+    {# --- 這裡不再需要 <div class="container"> --- #}
+    {# --- 可以加上特定於此頁的 wrapper 來控制樣式/居中 (如果 base.html 的 container 不夠) --- #}
+    {# --- 我們沿用你之前的 upload-container 樣式所需的結構，但不使用 container class --- #}
+    <div class="upload-page-content mx-auto" style="max-width: 700px; background-color: white; padding: 40px; border-radius: var(--border-radius); box-shadow: var(--box-shadow); position: relative; overflow: hidden; margin-top: 20px;">
+
+        <div class="bg-decoration"></div>
+        <h1 style="font-size: 28px; color: var(--primary-color); margin-bottom: 20px; position: relative; z-index: 1; border-bottom: 2px solid #f0f0f0; padding-bottom: 15px;">草莓病蟲害辨識系統</h1>
+        <form method="post" enctype="multipart/form-data" action="">
+            {% csrf_token %}
+            <div class="form-group">
+                <label for="image_file" style="display: block; margin-bottom: 10px; font-weight: 600; color: var(--dark-color);">上傳草莓葉片照片：</label>
+                <div class="file-input-container" id="file-container" style="position: relative; border: 2px dashed #ddd; border-radius: var(--border-radius); padding: 30px; text-align: center; transition: all 0.3s ease; cursor: pointer; background-color: var(--light-color);">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" style="width: 48px; height: 48px; margin-bottom: 15px; fill: var(--primary-color);">
+                        <path d="M13 5.41V17a1 1 0 0 1-2 0V5.41l-3.3 3.3a1 1 0 0 1-1.4-1.42l5-5a1 1 0 0 1 1.4 0l5 5a1 1 0 1 1-1.4 1.42L13 5.4zM3 17a1 1 0 0 1 2 0v3h14v-3a1 1 0 0 1 2 0v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-3z" />
+                    </svg>
+                    <strong style="display: block; margin-bottom: 5px;">點擊或拖曳檔案到此處</strong>
+                    <p style="margin: 10px 0 0; color: #777; font-size: 14px;">支援 JPG、PNG 格式</p>
+                    <input type="file" name="image_file" id="image_file" accept="image/jpeg, image/png" required style="position: absolute; width: 100%; height: 100%; top: 0; left: 0; opacity: 0; cursor: pointer;">
+                </div>
+                <div class="file-name" id="file-name" style="margin-top: 15px; font-size: 14px; color: var(--dark-color); display: none; text-align: center; padding: 5px; background-color: #e9ecef; border-radius: 5px;"></div>
+            </div>
+            <button type="submit" style="display: inline-block; padding: 12px 24px; background-color: var(--primary-color); color: white; border: none; border-radius: var(--border-radius); font-size: 16px; font-weight: 600; cursor: pointer; transition: all 0.3s ease; box-shadow: 0 2px 5px rgba(232, 62, 140, 0.3); width: 100%;">開始辨識</button>
+        </form>
+
+        {% if error_message %}
+            <p class="error" style="color: #e74c3c; margin-top: 20px; padding: 10px; border-radius: var(--border-radius); background-color: rgba(231, 76, 60, 0.1); border-left: 4px solid #e74c3c;">{{ error_message }}</p>
+        {% endif %}
+
+        <div class="footer" style="margin-top: 30px; text-align: center; font-size: 14px; color: #777;">
+            草莓病蟲害辨識系統  2025
+        </div>
+
+        <svg class="strawberry-icon" style="position: absolute; bottom: 20px; right: 20px; width: 50px; height: 50px; opacity: 0.15; z-index: 0;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+            <path d="M272 220.8c8.7-14.9 15.9-30.8 25.4-45.2 13.4-20.4 29.9-37.4 53.7-42.8 23.7-5.3 44 1.9 60.4 18.2 5.9 6 10.3 7.5 18.2 4.7 57.9-20.2 110.5 11.6 117.1 72.2 5.8 52.6-19.2 100.4-50.4 143.4-20.9 28.8-47.2 52.3-75.2 74.2-13.7 10.7-29.1 14.9-46.6 14.9-24.1 0-48.1.1-72.2 0-36.6-.1-68.5-15.8-96.7-39.1-19.9-16.4-38.1-35-53.6-55.8-23.9-32.1-43.8-66.5-46.8-107.8-1.4-19.8 2.8-38.8 13.4-55.8 11.1-17.9 27.2-29.7 48-34 24.3-5 46.4.8 66.2 14.4 6.4 4.4 10.5 4.4 16.4-.2 13.9-10.8 28.8-16.3 46.7-14 18.6 2.5 33.3 11.6 43 27.2 2.7 4.3 4.6 9.1 7.4 14.5z" fill="#e83e8c" />
+        </svg>
+    </div>
+{% endblock %}
+
+
+{% block scripts %}
+    {{ block.super }} {# 包含 base.html 中的 JS (例如 Bootstrap JS) #}
+    {# --- 用於檔名顯示和拖曳效果的 JavaScript --- #}
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const imageInput = document.getElementById('image_file');
+            const fileNameDiv = document.getElementById('file-name');
+            const fileContainer = document.getElementById('file-container');
+
+            if (imageInput && fileNameDiv && fileContainer) {
+                // 顯示選取的檔案名稱
+                imageInput.addEventListener('change', function(e) {
+                    const fileName = e.target.files[0] ? e.target.files[0].name : '';
+                    if (fileName) {
+                        fileNameDiv.textContent = '已選擇檔案: ' + fileName;
+                        fileNameDiv.style.display = 'block';
+                        fileContainer.style.borderColor = '#4caf50'; // 成功選擇時變綠色
+                    } else {
+                        fileNameDiv.style.display = 'none';
+                        fileContainer.style.borderColor = '#ddd'; // 恢復預設
+                    }
+                });
+
+                // 拖曳效果
+                ['dragenter', 'dragover'].forEach(eventName => {
+                    fileContainer.addEventListener(eventName, function(e) {
+                        e.preventDefault();
+                        this.style.borderColor = 'var(--primary-color)'; // 使用 CSS 變數
+                        this.style.backgroundColor = 'rgba(232, 62, 140, 0.1)';
+                    }, false);
+                });
+
+                ['dragleave', 'drop'].forEach(eventName => {
+                    fileContainer.addEventListener(eventName, function(e) {
+                        e.preventDefault();
+                        this.style.borderColor = '#ddd';
+                        this.style.backgroundColor = 'var(--light-color)'; // 使用 CSS 變數
+                    }, false);
+                });
+
+                // 拖放檔案處理
+                fileContainer.addEventListener('drop', function(e) {
+                    e.preventDefault();
+                    const files = e.dataTransfer.files;
+                    if (files.length) {
+                        imageInput.files = files; // 將拖放的檔案賦給 input
+                        // 觸發 change 事件以更新檔案名稱顯示
+                        const event = new Event('change');
+                        imageInput.dispatchEvent(event);
+                    }
+                }, false);
+            } else {
+                console.warn("Upload form JavaScript could not find required elements (image_file, file-name, file-container).");
+            }
+        });
+    </script>
+{% endblock %}

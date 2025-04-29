@@ -1,0 +1,66 @@
+services:
+  # 服務 1: PostgreSQL 資料庫
+  db:
+    image: postgres:15-alpine # 使用官方 PostgreSQL 映像檔 (alpine 版本較小)
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/ # 將資料庫數據持久化到名為 postgres_data 的 volume 中
+    environment:
+      - POSTGRES_DB=strawberry_db
+      - POSTGRES_USER=strawberry_user
+      - POSTGRES_PASSWORD=Nick45320639
+        # 這些環境變數會在容器啟動時自動建立資料庫和使用者
+    expose:
+      - "5432" # 只向內部網路公開端口，web 服務可以訪問
+    # ports: # 如果你需要從 Windows 直接連線 DB (例如用 GUI 工具)，可以取消註解下面這行
+    #   - "5433:5432" # 將容器的 5432 端口映射到主機的 5433 端口
+
+  # 服務 2: Django 應用程式 (使用 Gunicorn 運行)
+  web:
+    build: . # 告訴 docker-compose 使用當前目錄下的 Dockerfile 來建構這個服務的映像檔
+    # command: python manage.py runserver 0.0.0.0:8000 # 開發時可以用這個覆蓋 Dockerfile 的 CMD 來方便偵錯
+    volumes:
+      # 掛載專案程式碼到容器內，方便開發時修改程式碼立即生效 (生產環境通常不掛載程式碼卷)
+      # 但注意：這樣做會覆蓋 Dockerfile 中 COPY . . 的內容
+      # 如果在本機測試可以保留，正式部署到伺服器時建議移除此行，使用映像檔內的程式碼
+      - .:/app
+      # 掛載靜態檔案目錄 (Nginx 會用到)
+      - static_volume:/app/staticfiles # 使用 Docker Volume 儲存靜態檔
+      # 掛載媒體檔案目錄 (Django 寫入，Nginx 讀取)
+      - ./media:/app/media # 使用綁定掛載，直接映射本地 media 資料夾
+    expose:
+      - "8000" # 向內部網路公開 Gunicorn 運行的端口
+    environment:
+      # --- 使用 .env 檔案來管理敏感資訊和設定 ---
+      - SECRET_KEY=${SECRET_KEY} # 從 .env 讀取
+      - DEBUG=${DEBUG}           # 從 .env 讀取 (生產環境應為 0)
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - DATABASE_HOST=db       # <-- 重要：主機名設為服務名稱 'db'
+      - DATABASE_PORT=${DATABASE_PORT}
+      # 你可以在 .env 中加入更多環境變數
+    env_file:
+      - .env # 指定讀取 .env 檔案
+    depends_on:
+      - db # 指定 web 服務必須在 db 服務啟動之後才啟動
+
+  # 服務 3: Nginx 反向代理伺服器
+  nginx:
+    image: nginx:stable-alpine # 使用官方 Nginx 映像檔 (alpine 版本較小)
+    ports:
+      - "8000:80" # 將你電腦的 8000 端口映射到 Nginx 容器的 80 端口
+                  # 這樣你就可以透過 http://localhost:8000 訪問網站
+    volumes:
+      # 掛載你的 Nginx 設定檔 
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro # :ro 表示唯讀掛載
+      # 掛載靜態檔案卷 (唯讀)
+      - static_volume:/app/staticfiles:ro
+      # 掛載媒體檔案卷 (唯讀)
+      - ./media:/app/media:ro
+    depends_on:
+      - web # 指定 nginx 服務必須在 web 服務啟動之後才啟動
+
+# 定義 Docker Volumes (用於持久化數據)
+volumes:
+  postgres_data: # 用於儲存 PostgreSQL 資料庫檔案
+  static_volume: # 用於儲存 Django collectstatic 收集的靜態檔案

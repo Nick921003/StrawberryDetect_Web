@@ -1,0 +1,51 @@
+Detecter# Git
+.git
+.gitignore
+
+# Virtual Environment folders (add any other names you might use)
+venv/
+.venv/
+
+# Python cache files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# IDE / Editor specific folders
+.vscode/
+.idea/
+
+# OS specific files
+.DS_Store
+Thumbs.db
+
+# Django SQLite database (good to ignore even if using Postgres)
+db.sqlite3
+*.sqlite3
+
+# Media files - Usually handled by volumes in docker-compose
+# Avoid copying local media files into the image
+media/
+
+# Staticfiles collected by collectstatic - will be generated inside container
+# Avoid copying local potentially outdated collected static files
+staticfiles/ # If you set STATIC_ROOT to this
+
+# Docker related files (usually not needed inside the image)
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Log files
+*.log
+logs/
+
+# Secrets / Environment files (should ideally be managed outside image)
+*.env
+.env
+
+# Other build artifacts
+dist/
+build/
+*.egg-info/
