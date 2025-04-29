@@ -141,3 +141,7 @@ MEDIA_ROOT = BASE_DIR / 'media' # 使用 pathlib (Django 4.0+ 預設)
 # 或者，如果你的 BASE_DIR 是用 os 模組定義的，則用下面這行
 # import os
 # MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
+# 設定信任的來源，用於 CSRF 保護
+# 將你的 Nginx 訪問地址加入列表
+CSRF_TRUSTED_ORIGINS = ['http://localhost:8000']
