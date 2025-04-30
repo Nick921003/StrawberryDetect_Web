@@ -46,6 +46,7 @@
         # ALLOWED_HOSTS=localhost,127.0.0.1,your_domain.com
         ```
     * **重要：** `.env` 檔案包含敏感資訊，請**不要**將它提交到公開的 Git 倉庫。`.gitignore` 檔案中應包含 `.env`。
+    * 如不使用docker，DATABASE_HOST=localhost
 
 3.  **建立必要的本地目錄：**
     * 在專案根目錄下建立 `media` 目錄，用於存放使用者上傳的檔案：
@@ -58,7 +59,8 @@
         ```bash
         chmod -R 777 media
         ```
-        *注意：`chmod 777` 權限非常寬鬆，不建議在生產環境使用。*
+        *注意：`chmod 777` 權限非常寬鬆，不建議在生產環境使用。*  
+        *後續會嘗試改用雲端儲存AWS或是GCS，或是在linux原生環境部屬網站時，匹配 UID/GID方式*
 
 4.  **拉取 Docker 映像檔 (可選)：**
     * `docker-compose up` 會自動拉取映像檔，但你也可以先手動拉取 `web` 服務的映像檔（將 `<使用者名稱>` 和 `<映像庫名稱>` 換成實際的）：
@@ -72,12 +74,20 @@
         docker-compose up -d
         ```
     * `-d` 參數會讓容器在背景執行。首次啟動會需要一些時間來建立資料庫和應用遷移。
+    * 如不使用docker，執行:
+        ```bash
+        python manage.py runserver
+        ```
 
 6.  **資料庫遷移 (首次啟動後)：**
     * 雖然推薦的 `Dockerfile` `CMD` 會自動執行遷移，但如果沒有自動執行，你可能需要手動執行一次：
         ```bash
         docker-compose exec web python manage.py migrate
         ```
+    * 如不使用docker，執行:
+      ```bash
+      python manage.py migrate
+      ```
 
 ## 訪問應用程式
 
