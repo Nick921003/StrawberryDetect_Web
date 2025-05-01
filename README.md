@@ -26,6 +26,10 @@
 
 2.  **建立環境變數檔案 (`.env`)：**
     * 在專案根目錄（與 `docker-compose.yml` 同層）**手動建立**一個名為 `.env` 的檔案。
+    * **產生 SECRET_KEY：** 在你的**本地開發環境**（啟用虛擬環境後）的終端機中執行以下指令來產生一個安全的隨機密鑰：
+        ```bash
+        python -c 'from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())'
+        ```
     * 複製以下內容到 `.env` 中，並**修改**設定值：
 
         ```dotenv
