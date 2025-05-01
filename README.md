@@ -88,7 +88,7 @@
 
 ### 訪問應用程式 (Docker)
 
-* 容器成功啟動後，打開瀏覽器訪問：[http://localhost:8000/detector](http://localhost:8000/detector) (或其他你設定的 URL)
+* 容器成功啟動後，打開瀏覽器訪問：[http://localhost:8000/detector](http://localhost:8000/detector) 
 
 ### Docker 常用指令
 
