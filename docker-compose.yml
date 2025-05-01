@@ -5,10 +5,9 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data/ # 將資料庫數據持久化到名為 postgres_data 的 volume 中
     environment:
-      - POSTGRES_DB=strawberry_db
-      - POSTGRES_USER=strawberry_user
-      - POSTGRES_PASSWORD=Nick45320639
-        # 這些環境變數會在容器啟動時自動建立資料庫和使用者
+      - POSTGRES_DB={POSTGRES_DB}
+      - POSTGRES_USER={POSTGRES_USER}
+      - POSTGRES_PASSWORD={POSTGRES_PASSWORD} # 這些環境變數會在容器啟動時自動建立資料庫和使用者
     expose:
       - "5432" # 只向內部網路公開端口，web 服務可以訪問
     # ports: # 如果你需要從 Windows 直接連線 DB (例如用 GUI 工具)，可以取消註解下面這行
