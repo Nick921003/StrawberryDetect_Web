@@ -17,6 +17,7 @@ from PIL import Image
 # import logging
 # logger = logging.getLogger(__name__)
 
+# 上傳圖片並執行辨識的視圖函式
 def upload_detect_view(request):
     # 1. 初始化 context 字典
     context = {
