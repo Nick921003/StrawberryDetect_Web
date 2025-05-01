@@ -42,10 +42,7 @@
         DATABASE_PORT=5432
 
         # YOLO 設定
-        YOLO_CONFIG_DIR=/tmp/yolov8_config
-
-        # 其他環境變數，例如允許的主機
-        # ALLOWED_HOSTS=localhost,127.0.0.1,your_domain.com
+        YOLO_CONFIG_DIR=/tmp/yolov11_config
         ```
     * **重要：** `.env` 包含敏感資訊，切勿提交到 Git。`.gitignore` 應包含 `.env`。
 
@@ -60,7 +57,7 @@
         ```bash
         chmod -R 777 media
         ```
-        * *備註：生產環境建議使用雲端儲存 (AWS S3/GCS) 或在 Linux 伺服器上匹配 UID/GID 來處理權限。*
+        * *備註：後續會嘗試在生產環境使用雲端儲存 (AWS S3/GCS) 或在 Linux 伺服器上匹配 UID/GID 來處理權限。*
 
 4.  **取得 Docker 映像檔：**
     * **推薦方式：從 Docker Hub 拉取預建映像檔。** 這會使用開發者已經建置並上傳的版本：
