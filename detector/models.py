@@ -56,12 +56,12 @@ class DetectionRecord(models.Model):
 
     # (重要) 覆寫 delete 方法，以便在刪除資料庫記錄時，也刪除對應的圖片檔案
     def delete(self, *args, **kwargs):
-        # 檢查是否有檔案，若有則在刪除資料庫記錄前先刪除檔案
-        if self.original_image:
-            if os.path.isfile(self.original_image.path):
-                os.remove(self.original_image.path)
-        if self.annotated_image:
-            if os.path.isfile(self.annotated_image.path):
-                os.remove(self.annotated_image.path)
-        # 呼叫父類別的 delete 方法，執行實際的資料庫記錄刪除
+        # # 檢查是否有檔案，若有則在刪除資料庫記錄前先刪除檔案
+        # if self.original_image:
+        #     if os.path.isfile(self.original_image.path):
+        #         os.remove(self.original_image.path)
+        # if self.annotated_image:
+        #     if os.path.isfile(self.annotated_image.path):
+        #         os.remove(self.annotated_image.path)
+        # # 呼叫父類別的 delete 方法，執行實際的資料庫記錄刪除
         super().delete(*args, **kwargs)

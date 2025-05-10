@@ -1,29 +1,29 @@
-# 核心依賴
-asgiref==3.8.1
-certifi==2025.1.31
-charset-normalizer==3.4.1
-colorama==0.4.6 # Gunicorn 或其他工具可能需要
-Django==5.2
-filelock==3.18.0 # 可能被 torch 或其他套件間接依賴
-fsspec==2025.3.2 # 可能被 torch 或其他套件間接依賴
-gunicorn==23.0.0
-idna==3.10
-numpy==2.1.1
-opencv-python-headless==4.11.0.86 # 只保留 headless
-packaging==24.2
-pillow==11.1.0
-psycopg2-binary==2.9.10
-python-dateutil==2.9.0.post0
-python-dotenv==1.1.0
-pytz==2025.2
-PyYAML==6.0.2
-requests==2.32.3
-setuptools==80.0.0 # 通常需要
-six==1.17.0
-sqlparse==0.5.3
-typing_extensions==4.13.1
-tzdata==2025.2
-ultralytics==8.3.105
-urllib3==2.3.0
+# --- Django + REST API ---
+Django>=5.2,<6
+djangorestframework          # 若沒用 API，可移除
 
-# 將透過 Dockerfile 中的獨立 pip install 指令安裝 CPU 版本。
+# --- AWS S3 存儲 ---
+django-storages>=1.14
+boto3>=1.38
+botocore>=1.38
+s3transfer>=0.12.0           # boto3 傳輸工具
+
+# --- 通用工具 ---
+urllib3>=2.0
+certifi>=2025.4.26
+python-dotenv
+psycopg2-binary              # PostgreSQL
+rsa
+cryptography
+
+# --- 影像處理與計算 ---
+Pillow>=11.0.0
+opencv-python-headless>=4.11
+numpy>=1.24
+
+# --- YOLOv11 相關 ---
+# 注意：torch 和 torchvision 請在 setup.sh 中手動指定為 CPU-only
+# ultralytics 也請分開安裝以避免自動抓 CUDA torch
+# torch==2.6.0 （手動裝）
+# torchvision==0.21.0 （手動裝）
+# ultralytics==8.3.130 （手動裝）
