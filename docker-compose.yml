@@ -16,6 +16,7 @@ services:
   # 服務 2: Django 應用程式 (使用 Gunicorn 運行)
   web:
     build: . # 告訴 docker-compose 使用當前目錄下的 Dockerfile 來建構這個服務的映像檔
+    image: nick45320639/strawberrydetect:latest # 設定映像檔名稱
     # command: python manage.py runserver 0.0.0.0:8000 # 開發時可以用這個覆蓋 Dockerfile 的 CMD 來方便偵錯
     volumes:
       # 掛載專案程式碼到容器內，方便開發時修改程式碼立即生效 (生產環境通常不掛載程式碼卷)
