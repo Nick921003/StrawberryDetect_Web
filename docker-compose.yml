@@ -24,8 +24,7 @@ services:
       - .:/app
       # 掛載靜態檔案目錄 (Nginx 會用到)
       - static_volume:/app/staticfiles # 使用 Docker Volume 儲存靜態檔
-      # 掛載媒體檔案目錄 (Django 寫入，Nginx 讀取)
-      - ./media:/app/media # 使用綁定掛載，直接映射本地 media 資料夾
+      # - app_temp_uploads_volume:/app/temp_uploads 
     expose:
       - "8000" # 向內部網路公開 Gunicorn 運行的端口
     environment:
@@ -54,8 +53,6 @@ services:
       - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro # :ro 表示唯讀掛載
       # 掛載靜態檔案卷 (唯讀)
       - static_volume:/app/staticfiles:ro
-      # 掛載媒體檔案卷 (唯讀)
-      - ./media:/app/media:ro
     depends_on:
       - web # 指定 nginx 服務必須在 web 服務啟動之後才啟動
 
