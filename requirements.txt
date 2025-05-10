@@ -1,6 +1,7 @@
 # --- Django + REST API ---
 Django>=5.2,<6
 djangorestframework          # 若沒用 API，可移除
+gunicorn>=23.0.0
 
 # --- AWS S3 存儲 ---
 django-storages>=1.14

@@ -22,9 +22,6 @@ RUN apt-get update && \
        # opencv-python-headless 可能需要的圖形庫
        libgl1-mesa-glx \
        libglib2.0-0 \
-       # psycopg2 (非 binary) 可能需要的編譯工具和函式庫
-       libpq-dev \
-       gcc \
     # 清理 apt 快取以縮小映像檔大小
     && rm -rf /var/lib/apt/lists/*
 
@@ -34,7 +31,7 @@ RUN pip install --upgrade pip
 
 # --- 安裝 CPU 版本的 PyTorch 和 Torchvision ---
 RUN pip install --no-cache-dir torch==2.6.0 torchvision==0.21.0 --index-url https://download.pytorch.org/whl/cpu
-
+RUN pip install --no-cache-dir ultralytics==8.3.130 
 # 複製 requirements.txt
 COPY requirements.txt .
 
@@ -45,10 +42,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 # 將目前目錄 (.) 的所有內容 (根據 .dockerignore 排除的檔案除外) 複製到容器的 /app 目錄
 # 放在 pip install 之後，以利用快取
 COPY . .
-
-# --- 複製模型檔案 ---
-# 複製 YOLO 模型檔案到指定路徑
-COPY ./yolo/best.pt ./yolo/best.pt
 
 # --- 建立非 Root 使用者 ---
 # 建立一個名為 appuser 的非特權使用者和群組
