@@ -1,0 +1,26 @@
+[
+    {
+        "AllowedHeaders": [
+            "Authorization",
+            "Content-Type",
+            "X-Amz-Date",
+            "X-Amz-Security-Token",
+            "X-Amz-User-Agent",
+            "*"
+        ],
+        "AllowedMethods": [
+            "GET",
+            "HEAD"
+        ],
+        "AllowedOrigins": [
+            "http://localhost:8000",
+            "http://127.0.0.1:8000",
+            "https://your-production-domain.com"
+        ],
+        "ExposeHeaders": [
+            "ETag",
+            "x-amz-version-id"
+        ],
+        "MaxAgeSeconds": 3000
+    }
+]
