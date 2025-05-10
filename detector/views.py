@@ -1,25 +1,36 @@
 # detector/views.py
+from pathlib import Path
 from .models import DetectionRecord # 匯入模型
-from django.shortcuts import render, redirect, get_object_or_404
+from django.shortcuts import render, get_object_or_404 # redirect 可能不再需要，視您的流程而定
 from django.conf import settings
 import os
 import uuid
 import cv2
-import numpy as np
+# import numpy as np # 似乎沒有直接使用 np，除非 run_yolo_inference 回傳的 annotated_array 需要特別處理
 from .inference_utils import run_yolo_inference # 匯入接收路徑的推論函式
-from .models import DetectionRecord # 匯入模型
+# from .models import DetectionRecord # 重複匯入了，移除一個
 from django.core.files.base import ContentFile # 用於從記憶體數據建立 Django 檔案物件
 from django.core.files.storage import FileSystemStorage # 需要用來存暫存檔
 import io
 from PIL import Image
+import traceback # 用於捕捉和打印錯誤的詳細資訊
 
-# (可選) 匯入 logging
-# import logging
-# logger = logging.getLogger(__name__)
+from django.core.files.storage import default_storage # 用於檢查 default_storage
+import logging
+view_logger = logging.getLogger(__name__) # Logger 名稱會是 'detector.views'
 
 # 上傳圖片並執行辨識的視圖函式
 def upload_detect_view(request):
-    # 1. 初始化 context 字典
+    view_logger.debug("--- 進入 upload_detect_view ---")
+    # 以下檢查 default_storage 的日誌，在確認 S3 設定正確後，可以考慮移除或設為更低級別
+    view_logger.debug(f"當前 default_storage 類型: {type(default_storage)}")
+    view_logger.debug(f"當前 default_storage 類別名稱: {default_storage.__class__.__name__}")
+    if hasattr(default_storage, 'bucket_name'):
+        view_logger.debug(f"Default storage bucket_name: {default_storage.bucket_name}")
+    if hasattr(default_storage, 'location'):
+        view_logger.debug(f"Default storage location: {default_storage.location}")
+    # --- 「極簡儲存測試」區塊已移除 ---
+
     context = {
         'uploaded_image_url': None,
         'annotated_image_url': None,
@@ -30,227 +41,179 @@ def upload_detect_view(request):
         'limit_notice': "系統僅保留最近 10 筆辨識紀錄。"
     }
 
-    # 2. 嘗試獲取模型和類別名稱
-    yolo_model = None
     try:
-        from .apps import yolo_model
+        from .apps import yolo_model # 嘗試從 app config 獲取已載入的模型
         if yolo_model is None:
+            # 這種情況理論上不應該發生，因為 apps.py 的 ready() 應該已經載入
+            # 但如果發生，這是一個嚴重的配置問題
+            view_logger.error("YOLO 模型實例在 .apps 中未找到或為 None。")
             raise RuntimeError("YOLO model is not loaded.")
         if hasattr(yolo_model, 'names') and isinstance(yolo_model.names, dict):
             context['class_names'] = list(yolo_model.names.values())
         else:
-            print("警告：無法從 yolo_model.names 獲取類別名稱。")
-            context['class_names'] = [] # 確保是列表
+            view_logger.warning("無法從 yolo_model.names 獲取類別名稱，或格式不正確。")
+            context['class_names'] = []
     except Exception as e:
-        error_message = f"載入模型或設定時出錯: {e}"
-        print(error_message)
-        context['error_message'] = error_message
-        # 根據請求類型返回錯誤頁面
+        error_message_init = f"載入 YOLO 模型或設定時出錯: {e}"
+        view_logger.error(error_message_init, exc_info=True) # 記錄錯誤及 traceback
+        context['error_message'] = error_message_init
         return render(request, 'detector/upload_form.html', context)
 
-
-    # 3. 處理 POST 請求
     if request.method == 'POST':
-        # 再次檢查模型是否真的可用
-        if yolo_model is None:
-            context['error_message'] = "錯誤：辨識模型尚未成功載入。"
-            return render(request, 'detector/upload_form.html', context)
-
-        # 初始化變數
         uploaded_file = None
         new_record = None
         text_results = []
         annotated_array = None
-        error_message = None
-        uploaded_image_path_abs = None # 儲存暫存檔路徑
-        unique_filename = ""         # 儲存唯一檔名 (不含路徑)
+        uploaded_image_path_abs = None
+        unique_filename_base = ""
+        file_ext = ""
 
-        # 4. 獲取並驗證上傳檔案
-        if 'image_file' not in request.FILES:
-            error_message = "錯誤：請求中未找到 'image_file'。"
-            context['error_message'] = error_message; print(error_message)
-            return render(request, 'detector/upload_form.html', context)
-
-        uploaded_file = request.FILES['image_file']
-        if not uploaded_file.content_type.startswith('image'):
-            error_message = f"錯誤：請上傳圖片檔案，而非 {uploaded_file.content_type}。"
-            context['error_message'] = error_message; print(error_message)
-            return render(request, 'detector/upload_form.html', context)
-
-        # --- 5. 先將上傳的圖片儲存到暫存位置 ---
         try:
-            # 定義暫存資料夾路徑
-            temp_upload_dir = os.path.join(settings.MEDIA_ROOT, 'temp_uploads')
-            os.makedirs(temp_upload_dir, exist_ok=True) # 確保資料夾存在
-            fs = FileSystemStorage(location=temp_upload_dir)
+            # yolo_model 在 POST 開始時應已確認載入，這裡不再重複檢查以簡化流程
 
-            # 產生唯一檔名
-            file_ext = os.path.splitext(uploaded_file.name)[1]
-            unique_filename = f"{uuid.uuid4()}{file_ext}"
+            if 'image_file' not in request.FILES:
+                context['error_message'] = "錯誤：請求中未找到 'image_file'。"
+                view_logger.warning(context['error_message'])
+                return render(request, 'detector/upload_form.html', context)
 
-            # 儲存暫存檔案，獲取基於 location 的相對名稱
-            temp_saved_name = fs.save(unique_filename, uploaded_file)
-            # 獲取暫存檔案的絕對路徑
+            uploaded_file = request.FILES['image_file']
+            if not uploaded_file.content_type.startswith('image'):
+                context['error_message'] = f"錯誤：請上傳圖片檔案，而非 {uploaded_file.content_type}。"
+                view_logger.warning(context['error_message'])
+                return render(request, 'detector/upload_form.html', context)
+
+            # --- 5. 先將上傳的圖片儲存到本地暫存位置 ---
+            temp_upload_dir_name = 'temp_uploads'
+            base_dir_path = Path(settings.BASE_DIR) # settings.BASE_DIR 應該已經是 Path 物件
+            temp_upload_dir_abs_str = str(base_dir_path / temp_upload_dir_name)
+
+            os.makedirs(temp_upload_dir_abs_str, exist_ok=True)
+            fs = FileSystemStorage(location=temp_upload_dir_abs_str)
+
+            original_filename = uploaded_file.name
+            file_ext = os.path.splitext(original_filename)[1].lower()
+            unique_filename_base = str(uuid.uuid4())
+            unique_temp_filename = f"{unique_filename_base}{file_ext}"
+
+            temp_saved_name = fs.save(unique_temp_filename, uploaded_file)
             uploaded_image_path_abs = fs.path(temp_saved_name)
-            print(f"圖片暫存於: {uploaded_image_path_abs}")
+            view_logger.debug(f"圖片已暫存於本地: {uploaded_image_path_abs}")
 
-        except Exception as e:
-            error_message = f"儲存臨時上傳檔案時發生錯誤: {e}"
-            print(error_message); context['error_message'] = error_message
-            # 即使暫存失敗也渲染結果頁面（會顯示錯誤）
+            # --- 6. 執行模型推論 ---
+            view_logger.info(f"開始對圖片 {unique_filename_base}{file_ext} 進行YOLO推論。")
+            confidence_threshold = 0.5 # 或從 settings/request 獲取
+            annotated_array, text_results = run_yolo_inference(uploaded_image_path_abs, confidence_threshold)
+            context['results'] = text_results
+            view_logger.info(f"YOLO推論完成，偵測到 {len(text_results)} 個物件。")
+
+            # --- 7. 建立並儲存資料庫記錄 (檔案會上傳到 S3) ---
+            new_record = DetectionRecord()
+            new_record.results_data = text_results
+
+            s3_original_filename = f"{unique_filename_base}{file_ext}"
+            with open(uploaded_image_path_abs, 'rb') as f_original:
+                original_image_content = ContentFile(f_original.read(), name=s3_original_filename)
+                # ImageField 的 save 方法會處理上傳到 S3 (如果 default_storage 是 S3)
+                new_record.original_image.save(s3_original_filename, original_image_content, save=False)
+            view_logger.debug(f"原始圖片 '{s3_original_filename}' 已準備好，將透過 ImageField.save() 上傳到 S3。")
+
+            if annotated_array is not None and annotated_array.size > 0:
+                img_rgb = cv2.cvtColor(annotated_array, cv2.COLOR_BGR2RGB)
+                pil_image = Image.fromarray(img_rgb)
+                buffer = io.BytesIO()
+                annotated_file_ext = file_ext if file_ext in ['.jpg', '.jpeg', '.png'] else '.jpg'
+                pil_image_format = 'JPEG' if annotated_file_ext in ['.jpg', '.jpeg'] else 'PNG'
+                pil_image.save(buffer, format=pil_image_format, quality=90)
+                
+                s3_annotated_filename = f"result_{unique_filename_base}{annotated_file_ext}"
+                annotated_image_content = ContentFile(buffer.getvalue(), name=s3_annotated_filename)
+                new_record.annotated_image.save(s3_annotated_filename, annotated_image_content, save=False)
+                view_logger.debug(f"標註圖片 '{s3_annotated_filename}' 已準備好，將透過 ImageField.save() 上傳到 S3。")
+            else:
+                view_logger.info("沒有標註結果陣列或陣列為空，不儲存標註圖片。")
+
+            new_record.save() # 實際儲存到資料庫，並觸發 S3 上傳 (由 ImageField 的 save 方法完成)
+            view_logger.info(f"新的辨識紀錄已儲存 (ID: {new_record.id})，相關檔案應已上傳到 S3。")
+            view_logger.debug(f"S3 Original Image URL from Django: {new_record.original_image.url}")
+            if new_record.annotated_image and new_record.annotated_image.name:
+                view_logger.debug(f"S3 Annotated Image URL from Django: {new_record.annotated_image.url}")
+            
+            context['record_id'] = new_record.id
+            context['uploaded_image_url'] = new_record.original_image.url
+            if new_record.annotated_image:
+                context['annotated_image_url'] = new_record.annotated_image.url
+
+            # --- 8. 自動清理舊紀錄 ---
+            records_to_keep = 10 # 或從 settings 獲取
+            total_records = DetectionRecord.objects.count()
+            if total_records > records_to_keep:
+                num_to_delete = total_records - records_to_keep
+                ids_to_delete = DetectionRecord.objects.order_by('uploaded_at').values_list('id', flat=True)[:num_to_delete]
+                view_logger.info(f"紀錄超過 {records_to_keep} 筆，準備刪除 {len(ids_to_delete)} 筆最舊紀錄...")
+                count_deleted = 0
+                for record_id_to_delete in ids_to_delete:
+                    try:
+                        record_to_del = DetectionRecord.objects.get(id=record_id_to_delete)
+                        record_to_del.delete() # 這會觸發模型 delete 方法，進而刪除 S3 檔案
+                        count_deleted += 1
+                        view_logger.debug(f"  已刪除紀錄 ID: {record_id_to_delete} 及其 S3 檔案。")
+                    except DetectionRecord.DoesNotExist:
+                        view_logger.warning(f"  嘗試刪除紀錄 ID: {record_id_to_delete} 時發現其不存在。")
+                    except Exception as del_ex:
+                        view_logger.error(f"  刪除紀錄 ID: {record_id_to_delete} 時發生錯誤: {del_ex}", exc_info=True)
+                view_logger.info(f"舊紀錄清理完畢，共刪除 {count_deleted} 筆。")
+
             return render(request, 'detector/detection_result.html', context)
 
-        # --- 6. 執行模型推論 (傳遞檔案路徑) ---
-        try:
-            print(f"開始執行推論 (檔案): {uploaded_image_path_abs}")
-            confidence_threshold = 0.5 # 設定信心閾值
-            # 呼叫接收路徑的推論函式
-            annotated_array, text_results = run_yolo_inference(uploaded_image_path_abs, confidence_threshold)
-            context['results'] = text_results # 先存入 context
-            print(f"推論完成，偵測到 {len(text_results)} 個物件。")
-
-        except RuntimeError as re: # 捕捉模型未載入錯誤
-            error_message = f"模型推論錯誤: {re}"; print(error_message)
         except Exception as e:
-            error_message = f"執行模型推論時發生錯誤: {e}"; print(error_message)
+            view_logger.error(f"處理上傳請求時發生未預期錯誤: {e}", exc_info=True) # 記錄完整 traceback
+            context['error_message'] = f"處理上傳請求時發生內部錯誤，請稍後再試或聯繫管理員。" # 給使用者的通用錯誤訊息
+            
+            # 根據錯誤發生的階段，決定返回哪個頁面
+            if uploaded_file is None or (hasattr(uploaded_file, 'content_type') and not uploaded_file.content_type.startswith('image')):
+                return render(request, 'detector/upload_form.html', context)
+            else:
+                return render(request, 'detector/detection_result.html', context)
+        finally:
+            # 清理本地暫存檔案
+            if uploaded_image_path_abs and os.path.exists(uploaded_image_path_abs):
+                try:
+                    os.remove(uploaded_image_path_abs)
+                    view_logger.debug(f"已刪除本地暫存檔案: {uploaded_image_path_abs}")
+                except Exception as e_remove:
+                    view_logger.error(f"刪除本地暫存檔案 {uploaded_image_path_abs} 時發生錯誤: {e_remove}", exc_info=True)
 
-        # 如果推論出錯，設定錯誤訊息 (但不立刻 return，先執行 finally 刪除暫存檔)
-        if error_message:
-            context['error_message'] = error_message
-
-
-        # --- 7. 建立並儲存資料庫記錄 ---
-        # 無論推論是否成功，都嘗試儲存記錄 (如果 annotated_array 是 None 會存空值)
-        # 但如果推論出錯，則不進行儲存DB這一步，直接跳到 finally 後渲染錯誤
-        if not error_message:
-            try:
-                new_record = DetectionRecord()
-                new_record.results_data = text_results
-
-                # 從暫存路徑讀取原始檔案內容來儲存
-                with open(uploaded_image_path_abs, 'rb') as f:
-                    original_image_content = ContentFile(f.read())
-                    # 使用之前產生的 unique_filename
-                    new_record.original_image.save(unique_filename, original_image_content, save=False)
-
-                # 儲存標註圖 (如果有的話)
-                if annotated_array is not None:
-                    img_rgb = cv2.cvtColor(annotated_array, cv2.COLOR_BGR2RGB)
-                    pil_image = Image.fromarray(img_rgb)
-                    buffer = io.BytesIO()
-                    pil_image.save(buffer, format='JPEG', quality=90)
-                    image_content = ContentFile(buffer.getvalue())
-                    result_filename = f"result_{unique_filename}" # 檔名保持一致性
-                    new_record.annotated_image.save(result_filename, image_content, save=False)
-
-                new_record.save() # 儲存到資料庫
-                print(f"新的辨識紀錄已儲存到資料庫，ID: {new_record.id}")
-                context['record_id'] = new_record.id
-
-                # 從 record 物件獲取 URL
-                context['uploaded_image_url'] = new_record.original_image.url
-                if new_record.annotated_image:
-                    context['annotated_image_url'] = new_record.annotated_image.url
-
-            except Exception as e:
-                error_message = f"儲存辨識紀錄到資料庫時發生錯誤: {e}"; print(error_message)
-                context['error_message'] = error_message
-                # 即使儲存DB失敗，之前的 URL 可能已在 context 中，嘗試保留
-                context['uploaded_image_url'] = context.get('uploaded_image_url')
-                context['annotated_image_url'] = context.get('annotated_image_url')
-
-        # --- 8. 自動清理舊紀錄 (在儲存成功 或 即使儲存失敗後都嘗試執行) ---
-        # (如果希望只在儲存成功後清理，就把這段移入上面的 try)
-        if not error_message: # 只在前面步驟沒錯時才嘗試清理
-            try:
-                records_to_keep = 10
-                total_records = DetectionRecord.objects.count()
-
-                if total_records > records_to_keep:
-                    num_to_delete = total_records - records_to_keep
-                    ids_to_delete = DetectionRecord.objects.order_by('uploaded_at').values_list('id', flat=True)[:num_to_delete]
-                    records_to_delete = DetectionRecord.objects.filter(id__in=list(ids_to_delete))
-
-                    print(f"紀錄超過 {records_to_keep} 筆，將刪除 {records_to_delete.count()} 筆最舊紀錄...")
-                    count_deleted = 0
-                    for record_to_delete in records_to_delete:
-                        record_id_to_delete = record_to_delete.id
-                        record_to_delete.delete()
-                        count_deleted += 1
-                        print(f"  已刪除紀錄 ID: {record_id_to_delete}")
-                    print(f"舊紀錄清理完畢，共刪除 {count_deleted} 筆。")
-
-            except Exception as e:
-                print(f"警告：自動清理舊紀錄時發生錯誤: {e}")
-                # 清理失敗通常不影響本次結果顯示
-
-        # --- 9. 刪除暫存檔案 (使用 finally 確保執行) ---
-        if uploaded_image_path_abs and os.path.exists(uploaded_image_path_abs):
-            try:
-                os.remove(uploaded_image_path_abs)
-                print(f"已刪除暫存檔案: {uploaded_image_path_abs}")
-            except Exception as e:
-                print(f"刪除暫存檔案 {uploaded_image_path_abs} 時發生錯誤: {e}")
-
-
-        # --- 10. 渲染結果頁面模板 ---
-        # context 字典已包含所有需要的信息
-        return render(request, 'detector/detection_result.html', context)
-
-    # --- 處理 GET 請求 ---
     else: # request.method == 'GET'
-        # 傳遞包含 limit_notice 和 可能存在的 class_names 的 context
         return render(request, 'detector/upload_form.html', context)
-# 歷史紀錄列表視圖 
-def detection_history_view(request):
-    """
-    顯示最近 10 筆辨識紀錄的列表。
-    """
-    # 從資料庫中查詢紀錄：
-    # - DetectionRecord.objects：代表資料庫中所有 DetectionRecord 記錄
-    # - .order_by('-uploaded_at')：依照 uploaded_at 欄位「降序」排列 (新的在前)
-    # - [:10]：只選取查詢結果的前 10 筆
-    latest_records = DetectionRecord.objects.order_by('-uploaded_at')[:10]
 
-    # 準備要傳遞給模板的資料
+# 歷史紀錄列表視圖
+def detection_history_view(request):
+    view_logger.debug("--- 進入 detection_history_view ---")
+    latest_records = DetectionRecord.objects.order_by('-uploaded_at')[:10]
     context = {
         'records': latest_records,
-        'limit_notice': "僅顯示最近 10 筆辨識紀錄。" # 也可以在這裡傳遞提示
+        'limit_notice': "僅顯示最近 10 筆辨識紀錄。"
     }
-    # 渲染結果頁面模板 detector/history.html 
     return render(request, 'detector/history.html', context)
-# 歷史紀錄詳情視圖 
-def detection_detail_view(request, record_id):
-    """
-    顯示單筆指定的辨識紀錄詳情。
-    """
-    # 嘗試根據從 URL 傳來的 record_id (UUID) 從資料庫獲取對應的紀錄
-    # 如果找不到，get_object_or_404 會自動回傳 404 Not Found 頁面
-    record = get_object_or_404(DetectionRecord, pk=record_id)
 
-    # 準備要傳遞給模板的資料
+# 歷史紀錄詳情視圖
+def detection_detail_view(request, record_id):
+    view_logger.debug(f"--- 進入 detection_detail_view (record_id: {record_id}) ---")
+    record = get_object_or_404(DetectionRecord, pk=record_id)
     context = {
-        # 從 record 物件的欄位獲取 URL
         'uploaded_image_url': record.original_image.url if record.original_image else None,
         'annotated_image_url': record.annotated_image.url if record.annotated_image else None,
-        # 從 record 物件的 JSONField 獲取結果列表
         'results': record.results_data if record.results_data else [],
-        'error_message': None, # 假設查看歷史紀錄時沒有錯誤
+        'error_message': None,
         'record_id': record.id,
         'limit_notice': "系統僅保留最近 10 筆辨識紀錄。",
-        'class_names': [], # 預設為空，下面嘗試從模型獲取
-        'record_timestamp': record.uploaded_at # 傳遞記錄的時間戳
+        'class_names': [],
+        'record_timestamp': record.uploaded_at
     }
-
-    # 嘗試獲取類別名稱 (如果模型已載入)
     try:
         from .apps import yolo_model
         if yolo_model and hasattr(yolo_model, 'names') and isinstance(yolo_model.names, dict):
             context['class_names'] = list(yolo_model.names.values())
     except Exception as e:
-        print(f"獲取類別名稱時發生錯誤 (Detail View): {e}")
-        # 即使獲取失敗，也要繼續渲染頁面
-
-    # *** 重用 detection_result.html 模板來顯示詳情 ***
+        view_logger.warning(f"獲取類別名稱時發生錯誤 (Detail View for record {record_id}): {e}", exc_info=True)
     return render(request, 'detector/detection_result.html', context)
-
