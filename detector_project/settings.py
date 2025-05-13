@@ -31,6 +31,8 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'detector',
     'storages',
+    'django_cleanup.apps.CleanupConfig',  # 自動刪除上傳的檔案
+    'rest_framework', 
 ]
 
 TEMPLATES = [
