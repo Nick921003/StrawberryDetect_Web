@@ -18,7 +18,6 @@ class DetectorConfig(AppConfig):
         global yolo_model # 宣告我們要修改的是全局變數
 
         # 這個檢查是為了避免在開發伺服器自動重載時重複執行載入程式碼
-        # if yolo_model is None and not os.environ.get('RUN_MAIN', False):
         if yolo_model is None:
             # --- 重要：設定你的模型檔案路徑 ---
             # 務必將下面的路徑換成你 'best.pt' 檔案的 **實際存放路徑**
@@ -27,13 +26,6 @@ class DetectorConfig(AppConfig):
 
             # 範例 1: 模型放在專案根目錄下的 'ml_models' 資料夾中
             model_path = os.path.join(settings.BASE_DIR, 'yolo', 'best.pt')
-
-            # 範例 2: 使用絕對路徑 (請根據你的實際情況修改)
-            # model_path = "C:/Users/YourUser/path/to/runs/segment/trainXX/weights/best.pt"
-            # model_path = "/home/youruser/projects/runs/segment/trainXX/weights/best.pt"
-
-            # 範例 3: 如果模型就在專案根目錄下 (較不建議，容易混亂)
-            # model_path = os.path.join(settings.BASE_DIR, 'best.pt')
 
             # --- 模型載入 ---
             print(f"------------------------------------")

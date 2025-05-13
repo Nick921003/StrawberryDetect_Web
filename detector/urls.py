@@ -1,5 +1,7 @@
 from django.urls import path
+from django.urls import include # 用於包含其他 URLconf
 from . import views # 從當前資料夾匯入 views.py
+
 
 # 定義 App 的命名空間，方便在模板中引用 URL
 app_name = 'detector'

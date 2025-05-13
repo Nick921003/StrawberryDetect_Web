@@ -26,6 +26,7 @@ urlpatterns = [
     # 當使用者訪問的網址是以 'detector/' 開頭時，
     # 就把網址後面剩下的部分交給 'detector.urls' (也就是 detector/urls.py) 去處理
     path('detector/', include('detector.urls')),
+    path('api/', include('detector.api.urls')),
 ]
 # *** 新增以下區塊，用於在開發模式下提供媒體檔案 ***
 if settings.DEBUG:

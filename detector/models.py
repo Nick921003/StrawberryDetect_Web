@@ -2,6 +2,7 @@ from django.db import models
 import uuid # 用於產生不會重複的 ID
 import os   # 用於刪除檔案時操作路徑
 
+
 class DetectionRecord(models.Model):
     """
     用於儲存每一次草莓病蟲害辨識紀錄的模型。
