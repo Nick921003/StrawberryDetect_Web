@@ -33,6 +33,7 @@ INSTALLED_APPS = [
     'storages',
     'django_cleanup.apps.CleanupConfig',  # 自動刪除上傳的檔案
     'rest_framework', 
+    'django_celery_results',  # Celery 結果後端
 ]
 
 TEMPLATES = [
@@ -134,6 +135,23 @@ if AWS_STORAGE_BUCKET_NAME and AWS_S3_REGION_NAME:
 else:
     MEDIA_URL = '/media_default_local_error/'
     print("Warning: MEDIA_URL may not be set correctly due to missing S3 settings.")
+
+# --- Celery 設定 ---
+# 訊息代理的 URL，指向 Redis。
+# 如果 Redis 伺服器在本地且使用預設埠，通常是 redis://localhost:6379/0
+# 在 Docker Compose 中，我們使用服務名稱 'redis'
+CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', 'redis://redis:6379/0')
+
+# 結果後端的 URL，用於儲存任務的狀態和結果。
+# CELERY_RESULT_BACKEND = os.environ.get('CELERY_RESULT_BACKEND', 'redis://redis:6379/0')
+# 或者，如果你安裝了 django-celery-results 並想將結果存到資料庫：
+CELERY_RESULT_BACKEND = 'django-db' # 需要在 INSTALLED_APPS 中加入 'django_celery_results'
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = TIME_ZONE # 使用 Django 的時區設定
+CELERY_TASK_TRACK_STARTED = True # 追蹤任務是否開始執行
+# CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler' # 如果使用 django-celery-beat
 
 # LOGGING 設定
 LOGGING = {

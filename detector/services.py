@@ -31,7 +31,7 @@ def process_image_bytes(image_bytes: bytes, file_ext: str = '.jpg', confidence: 
 
     # 儲存原始圖片到 S3
     orig_name = f"{unique_base}{file_ext}"
-    record.original_image.save(orig_name, ContentFile(image_bytes), save=False)
+    # record.original_image.save(orig_name, ContentFile(image_bytes), save=False)
 
     # 若有標註結果，儲存標註圖到 S3
     if annotated_array is not None and annotated_array.size:

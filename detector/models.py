@@ -1,6 +1,5 @@
 from django.db import models
 import uuid # 用於產生不會重複的 ID
-import os   # 用於刪除檔案時操作路徑
 
 
 class DetectionRecord(models.Model):
@@ -11,7 +10,7 @@ class DetectionRecord(models.Model):
 
     # 主鍵 (Primary Key): 使用 UUID 確保每個紀錄有獨一無二且不易猜測的 ID
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-
+    
     # 原始圖片:
     # ImageField 會處理檔案上傳到 MEDIA_ROOT 下的 'uploads/年/月/日/' 資料夾
     # 資料庫欄位只會儲存相對路徑字串，例如 'uploads/2025/04/28/xxxx.jpg'
@@ -57,12 +56,4 @@ class DetectionRecord(models.Model):
 
     # (重要) 覆寫 delete 方法，以便在刪除資料庫記錄時，也刪除對應的圖片檔案
     def delete(self, *args, **kwargs):
-        # # 檢查是否有檔案，若有則在刪除資料庫記錄前先刪除檔案
-        # if self.original_image:
-        #     if os.path.isfile(self.original_image.path):
-        #         os.remove(self.original_image.path)
-        # if self.annotated_image:
-        #     if os.path.isfile(self.annotated_image.path):
-        #         os.remove(self.annotated_image.path)
-        # # 呼叫父類別的 delete 方法，執行實際的資料庫記錄刪除
         super().delete(*args, **kwargs)
