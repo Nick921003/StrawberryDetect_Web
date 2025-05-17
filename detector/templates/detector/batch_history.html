@@ -1,0 +1,91 @@
+{% extends 'detector/base.html' %}
+{% load static %} 
+
+{% block title %}{{ page_title }} - 草莓病蟲害辨識{% endblock %}
+
+{% block content %}
+    <div class="container mt-4"> {# 使用 Bootstrap container 和 margin-top #}
+        <div class="page-header mb-4">
+            <h1>{{ page_title }}</h1>
+            {% if limit_notice %}
+                <p class="text-muted">{{ limit_notice }}</p>
+            {% endif %}
+        </div>
+
+        {% if batch_jobs %}
+            <div class="list-group shadow-sm">
+                {% for job in batch_jobs %}
+                    {# 每個批次任務都是一個連結，指向該批次的詳細結果頁面 #}
+                    {# 我們需要為此定義一個新的 URL name，例如 'batch_detection_detail' #}
+                    <a href="{% url 'detector:batch_detection_detail' batch_job_id=job.id %}" 
+                       class="list-group-item list-group-item-action flex-column align-items-start">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h5 class="mb-1">批次任務 ID: {{ job.id|truncatechars:15 }}...</h5>
+                            <small class="text-muted">{{ job.created_at|date:"Y-m-d H:i" }}</small>
+                        </div>
+                        <p class="mb-1"><strong>S3 路徑:</strong> {{ job.s3_bucket_name }}/{{ job.s3_folder_prefix }}</p>
+                        <div class="mb-1">
+                            <strong>狀態:</strong> 
+                            <span class="badge 
+                                {% if job.status == 'COMPLETED' %}bg-success
+                                {% elif job.status == 'PROCESSING' %}bg-info text-dark
+                                {% elif job.status == 'PENDING' %}bg-secondary
+                                {% elif job.status == 'FAILED' %}bg-danger
+                                {% elif job.status == 'PARTIAL_COMPLETION' %}bg-warning text-dark
+                                {% else %}bg-light text-dark{% endif %}">
+                                {{ job.get_status_display }} {# 使用模型中定義的 choices display #}
+                            </span>
+                        </div>
+                        <small class="text-muted">
+                            找到圖片: {{ job.total_images_found }} | 
+                            成功處理: {{ job.images_processed_successfully }} | 
+                            處理失敗: {{ job.images_failed_to_process }}
+                        </small>
+                        {% if job.status == 'FAILED' and job.error_message %}
+                            <p class="text-danger mt-1 mb-0"><small>錯誤: {{ job.error_message|truncatewords:20 }}</small></p>
+                        {% endif %}
+                    </a>
+                {% endfor %}
+            </div>
+
+            {# 如果使用了分頁，在這裡加入分頁導航 #}
+            {# {% if batch_jobs.has_other_pages %}
+                <nav aria-label="Page navigation" class="mt-4">
+                    <ul class="pagination justify-content-center">
+                        {% if batch_jobs.has_previous %}
+                            <li class="page-item"><a class="page-link" href="?page={{ batch_jobs.previous_page_number }}">上一頁</a></li>
+                        {% else %}
+                            <li class="page-item disabled"><span class="page-link">上一頁</span></li>
+                        {% endif %}
+
+                        {% for i in batch_jobs.paginator.page_range %}
+                            {% if batch_jobs.number == i %}
+                                <li class="page-item active" aria-current="page"><span class="page-link">{{ i }}</span></li>
+                            {% else %}
+                                <li class="page-item"><a class="page-link" href="?page={{ i }}">{{ i }}</a></li>
+                            {% endif %}
+                        {% endfor %}
+
+                        {% if batch_jobs.has_next %}
+                            <li class="page-item"><a class="page-link" href="?page={{ batch_jobs.next_page_number }}">下一頁</a></li>
+                        {% else %}
+                            <li class="page-item disabled"><span class="page-link">下一頁</span></li>
+                        {% endif %}
+                    </ul>
+                </nav>
+            {% endif %} #}
+
+        {% else %}
+            <div class="alert alert-info" role="alert">
+                目前沒有任何批次辨識任務記錄。
+            </div>
+        {% endif %}
+
+        <hr class="my-4">
+        <div class="text-center">
+            {# 可以提供一個返回主操作頁面（例如上傳頁面）的連結 #}
+            <a href="{% url 'detector:upload_detect' %}" class="btn btn-outline-secondary">返回上傳頁面</a>
+             {# 或者一個觸發新批次任務的按鈕 (如果我們有這樣的介面) #}
+        </div>
+    </div>
+{% endblock %}
