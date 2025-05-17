@@ -44,7 +44,23 @@
                 </div>
                 {% endif %}
             </div>
-
+            {% if record.severity_score is not None %}
+                <div class="alert 
+                    {% if record.severity_score >= 0.7 %}alert-danger
+                    {% elif record.severity_score >= 0.4 %}alert-warning
+                    {% else %}alert-success
+                    {% endif %} 
+                    mt-3" role="alert">
+                    <strong>此圖片嚴重程度評分: {{ record.severity_score|floatformat:2 }}</strong>
+                    {% if record.severity_score >= 0.7 %}
+                        (狀況較為嚴重，請重點關注)
+                    {% elif record.severity_score >= 0.4 %}
+                        (存在潛在問題，建議觀察)
+                    {% else %}
+                        (狀況良好或問題輕微)
+                    {% endif %}
+                </div>
+            {% endif %}
             {# --- 控制面板 - 篩選和閾值設定 --- #}
             <div class="control-panel">
                 <h2>調整顯示設定</h2>
@@ -91,7 +107,25 @@
 
         <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
         <div style="text-align: center;"> {# 按鈕置中 #}
-            <a href="{% url 'detector:upload_detect' %}" class="back-button">上傳新的圖片</a> {# 改了按鈕文字 #}
+            {% if from_batch_id %}
+                {# 如果是從批次詳情頁過來的，返回到該批次詳情頁 #}
+                <a href="{% url 'detector:batch_detection_detail' batch_job_id=from_batch_id %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left"></i> 返回批次結果 ({{ from_batch_id|truncatechars:8 }}...)
+                </a>
+            {% elif record.batch_job_id %}
+                 {# 如果記錄本身屬於一個批次 (但不是直接從批次詳情頁跳轉，理論上少見但做個防護) #}
+                <a href="{% url 'detector:batch_detection_detail' batch_job_id=record.batch_job_id %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left"></i> 返回所屬批次 ({{ record.batch_job_id|truncatechars:8 }}...)
+                </a>
+            {% else %}
+                {# 如果是從手動上傳歷史或其他地方過來的，可以返回手動歷史列表或上傳頁 #}
+                <a href="{% url 'detector:manual_detection_history' %}" class="btn btn-outline-secondary me-2">
+                     <i class="fas fa-list"></i> 返回手動歷史
+                </a>
+                <a href="{% url 'detector:upload_detect' %}" class="btn btn-primary">
+                    <i class="fas fa-upload"></i> 上傳新的圖片
+                </a>
+            {% endif %}
         </div>
 
         <div class="footer">

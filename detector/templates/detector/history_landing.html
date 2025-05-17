@@ -1,0 +1,40 @@
+{% extends 'detector/base.html' %}
+{% load static %}
+
+{% block title %}{{ page_title }} - 草莓病蟲害辨識{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="page-header mb-4">
+        <h1>{{ page_title }}</h1>
+        <p class="text-muted">請選擇您想查看的歷史紀錄類型：</p>
+    </div>
+
+    <div class="list-group shadow-sm">
+        <a href="{% url 'detector:batch_detection_history' %}" class="list-group-item list-group-item-action">
+            <div class="d-flex w-100 justify-content-between">
+                <h5 class="mb-1">🚛 自走車批次辨識紀錄</h5>
+                <small><i class="fas fa-chevron-right"></i></small> {# 你可能需要 FontAwesome 或其他圖示庫 #}
+            </div>
+            <p class="mb-1">查看由自走車或 S3 資料夾觸發的完整批次處理任務。</p>
+        </a>
+        <a href="{% url 'detector:manual_detection_history' %}" class="list-group-item list-group-item-action">
+            <div class="d-flex w-100 justify-content-between">
+                <h5 class="mb-1">🖐️ 手動上傳辨識紀錄</h5>
+                <small><i class="fas fa-chevron-right"></i></small>
+            </div>
+            <p class="mb-1">查看您手動上傳的單張圖片辨識結果。</p>
+        </a>
+    </div>
+
+    <hr class="my-4">
+    <div class="text-center">
+        <a href="{% url 'detector:upload_detect' %}" class="btn btn-outline-secondary">返回上傳頁面</a>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_head %}
+    {# 如果你想用 FontAwesome 圖示，可以在 base.html 或這裡引入 #}
+    {# 例如: <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css"> #}
+{% endblock %}

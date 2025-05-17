@@ -14,7 +14,7 @@
 <body>
     <div class="container"> {# Bootstrap 的主要容器，提供左右邊距 #}
         <div class="text-end mb-3"> {# 使用 Bootstrap class 靠右對齊 #}
-            <a href="{% url 'detector:detection_history' %}" class="btn btn-outline-secondary btn-sm">查看辨識紀錄</a>
+            <a href="{% url 'detector:detection_history_landing' %}" class="btn btn-outline-secondary btn-sm">查看歷史紀錄</a>
         </div>
         {% block content %}
         {# 子模板的主要內容會插入到這裡 #}

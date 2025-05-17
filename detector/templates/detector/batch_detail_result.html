@@ -1,0 +1,137 @@
+{% extends 'detector/base.html' %}
+{% load static %}
+
+{% block title %}{{ page_title }} - 草莓病蟲害辨識{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="page-header mb-4">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{% url 'detector:detection_history_landing' %}">歷史紀錄</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'detector:batch_detection_history' %}">自走車批次紀錄</a></li>
+                <li class="breadcrumb-item active" aria-current="page">批次詳情: {{ batch_job.id|truncatechars:8 }}...</li>
+            </ol>
+        </nav>
+        <h1>{{ page_title }}</h1>
+        <p class="text-muted">S3 路徑: {{ batch_job.s3_bucket_name }}/{{ batch_job.s3_folder_prefix }}</p>
+        <p>
+            狀態: 
+            <span class="badge 
+                {% if batch_job.status == 'COMPLETED' %}bg-success
+                {% elif batch_job.status == 'PROCESSING' %}bg-info text-dark
+                {% elif batch_job.status == 'PENDING' %}bg-secondary
+                {% elif batch_job.status == 'FAILED' %}bg-danger
+                {% elif batch_job.status == 'PARTIAL_COMPLETION' %}bg-warning text-dark
+                {% else %}bg-light text-dark{% endif %}">
+                {{ batch_job.get_status_display }}
+            </span>
+             | 總圖片數: {{ batch_job.total_images_found }}
+             | 成功: {{ batch_job.images_processed_successfully }}
+             | 失敗: {{ batch_job.images_failed_to_process }}
+        </p>
+    </div>
+
+    {# --- 批次摘要區塊 --- #}
+    {% if batch_summary %}
+    <div class="card mb-4 shadow-sm">
+        <div class="card-header">
+            批次摘要分析
+        </div>
+        <div class="card-body">
+            {% if batch_summary.message %}
+                <p class="card-text">{{ batch_summary.message }}</p>
+            {% endif %}
+            {% if batch_summary.overall_status_guess %}
+                <h5 class="card-title">初步判斷: {{ batch_summary.overall_status_guess }}</h5>
+            {% endif %}
+            {% if batch_summary.stats %}
+                <h6>統計數據:</h6>
+                <ul>
+                    {% for key, value in batch_summary.stats.items %}
+                        <li>{{ key }}: {{ value }}</li>
+                    {% endfor %}
+                </ul>
+            {% endif %}
+            {% if batch_summary.disease_statistics %} {# 更理想的摘要結構 #}
+                <h6>病害統計:</h6>
+                <ul>
+                {% for disease, data in batch_summary.disease_statistics.items %}
+                    <li>{{ disease }}: 發現 {{ data.count }} 處, 平均嚴重度 {{ data.average_severity|floatformat:2 }}</li>
+                {% endfor %}
+                </ul>
+                {% if batch_summary.healthy_plants_ratio %}
+                <p>健康植株比例 (估算): {{ batch_summary.healthy_plants_ratio|floatformat:2 }}</p>
+                {% endif %}
+            {% endif %}
+            {% if batch_summary.recommendations %}
+                <h6>建議措施:</h6>
+                <p>{{ batch_summary.recommendations }}</p>
+            {% endif %}
+             {% if not batch_summary.overall_health_description and not batch_summary.stats and not batch_summary.message %}
+                <p class="text-muted">詳細摘要資訊正在生成中或此批次無摘要。</p>
+            {% endif %}
+        </div>
+    </div>
+    {% else %}
+    <div class="alert alert-info">此批次任務的摘要資訊正在生成中或不可用。</div>
+    {% endif %}
+
+    <hr>
+
+    {# --- 圖片列表區塊 --- #}
+    <h2 class="mb-3">圖片辨識結果 (按嚴重程度排序)</h2>
+    {% if detection_records %}
+        <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 g-3">
+            {% for record in detection_records %}
+            <div class="col">
+                <div class="card h-100 shadow-sm {% if record.severity_score is not None and record.severity_score >= 0.7 %}border-danger{% elif record.severity_score is not None and record.severity_score >= 0.4 %}border-warning{% else %}border-light{% endif %}">
+                    {% if record.original_image %}
+                        <a href="{% url 'detector:detection_detail' record_id=record.id %}?from_batch={{ batch_job.id }}">
+                            <img src="{{ record.original_image.url }}" class="card-img-top" alt="原始圖片 {{ forloop.counter }}" style="height: 200px; object-fit: cover;">
+                        </a>
+                    {% else %}
+                        <div class="card-img-top bg-light d-flex align-items-center justify-content-center" style="height: 200px;">
+                            <small class="text-muted">無原始圖片</small>
+                        </div>
+                    {% endif %}
+                    <div class="card-body">
+                        <h6 class="card-title">
+                            <a href="{% url 'detector:detection_detail' record_id=record.id %}?from_batch={{ batch_job.id }}">
+                                圖片ID: {{ record.id|truncatechars:8 }}...
+                            </a>
+                        </h6>
+                        <p class="card-text mb-1">
+                            嚴重程度: 
+                            {% if record.severity_score is not None %}
+                                <strong class="
+                                    {% if record.severity_score >= 0.7 %}text-danger
+                                    {% elif record.severity_score >= 0.4 %}text-warning
+                                    {% else %}text-success
+                                    {% endif %}">
+                                    {{ record.severity_score|floatformat:2 }}
+                                </strong>
+                            {% else %}
+                                <span class="text-muted">未評分</span>
+                            {% endif %}
+                        </p>
+                        <small class="text-muted">上傳於: {{ record.uploaded_at|date:"Y-m-d H:i" }}</small>
+                    </div>
+                    <div class="card-footer text-center">
+                         <a href="{% url 'detector:detection_detail' record_id=record.id %}?from_batch={{ batch_job.id }}" class="btn btn-sm btn-outline-primary">查看詳細結果</a>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="alert alert-secondary">此批次任務沒有包含任何已處理的圖片記錄。</div>
+    {% endif %}
+
+    <hr class="my-4">
+    <div class="text-center">
+        <a href="{% url 'detector:batch_detection_history' %}" class="btn btn-secondary">返回批次歷史列表</a>
+    </div>
+
+</div>
+{% endblock %}

@@ -7,14 +7,25 @@ from . import views # 從當前資料夾匯入 views.py
 app_name = 'detector'
 
 urlpatterns = [
-    # 將 App 的根路徑 (例如 未來可能是 /detector/) 對應到 upload_detect_view 函式
-    # 我們給這個 URL pattern 取名為 'upload_detect'
-    # 這樣在模板中就可以用 {% url 'detector:upload_detect' %} 來找到它
     path('', views.upload_detect_view, name='upload_detect'),
-    # 歷史紀錄列表頁面
-    path('history/', views.detection_history_view, name='detection_history'),
-    # 單筆歷史紀錄詳情頁面
-    # 使用 <uuid:record_id> 來捕捉 URL 中的 UUID 字串
-    # Django 會自動將 URL 中這部分的值作為名為 record_id 的參數傳遞給視圖函式
-    path('history/<uuid:record_id>/', views.detection_detail_view, name='detection_detail'),
+
+    # 1. 歷史紀錄的主入口頁面 (選擇頁面)
+    path('history/', views.history_landing_view, name='detection_history_landing'), # 或者你喜歡的 name
+
+    # 2. 自走車批次辨識歷史列表頁面
+    path('batch-history/', views.batch_detection_history_view, name='batch_detection_history'),
+
+    # 3. 手動上傳辨識歷史列表頁面
+    # 我們需要一個 View 來處理這個，可以修改舊的 detection_history_view
+    # 或者創建一個新的 view_manual_history。
+    # 假設我們修改舊的 detection_history_view，使其只顯示手動上傳的記錄。
+    path('manual-history/', views.detection_history_view, name='manual_detection_history'),
+    
+    # 4. 單筆"手動上傳"歷史紀錄詳情頁面 (保持不變，因為它接收 record_id)
+    # 它的連結會從 manual-history 頁面過來
+    path('manual-history/<uuid:record_id>/', views.detection_detail_view, name='detection_detail'), # 注意 URL name 保持為 detection_detail
+
+    # 5. 我們下一步 (2.2) 要創建的「批次辨識結果詳情」頁面的 URL，先預留 name
+    path('batch-result/<uuid:batch_job_id>/', views.batch_detection_detail_view, name='batch_detection_detail'),
+
 ]
