@@ -62,6 +62,7 @@ EXPOSE 8000
 # --- 啟動命令 ---
 # 使用 Gunicorn 運行 Django WSGI 應用 (會以 appuser 身份運行)
 # 這裡保留了你設定的 4 個 worker
-CMD ["sh", "-c", "python manage.py migrate && gunicorn --bind 0.0.0.0:8000 -w 4 detector_project.wsgi:application"]
+# CMD ["sh", "-c", "python manage.py migrate && gunicorn --bind 0.0.0.0:8000 -w 4 detector_project.wsgi:application"]
+CMD ["sh", "-c", "python manage.py migrate && gunicorn --preload --bind 0.0.0.0:8000 -w 4 detector_project.wsgi:application"]
 # 如果不想指定 worker 數量，可以使用下面這行
 # CMD ["gunicorn", "--bind", "0.0.0.0:8000", "detector_project.wsgi:application"]

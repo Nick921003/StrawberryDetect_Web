@@ -56,8 +56,46 @@ services:
       - static_volume:/app/staticfiles:ro
     depends_on:
       - web # 指定 nginx 服務必須在 web 服務啟動之後才啟動
+ 
+  # 服務 4: Redis (Celery Message Broker)
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379" # 如果需要從主機直接訪問 Redis，否則可只用 expose
+    volumes:
+      - redis_data:/data
+    restart: always
 
+  # 服務 5: Celery Worker (執行背景任務)
+  celery_worker:
+    build: . # 與 web 服務使用相同的 Dockerfile
+    image: nick45320639/strawberrydetect:latest 
+    command: celery -A detector_project worker -l INFO # 啟動 worker 的指令
+    volumes:
+      - .:/app # 同 web 服務，方便開發時程式碼同步
+    env_file:
+      - .env # 讀取環境變數
+    depends_on:
+      - db
+      - redis # worker 需要在 db 和 redis 啟動後啟動
+    environment: # 確保 worker 也能讀取到 Django 設定和 Redis 位置
+      - DJANGO_SETTINGS_MODULE=detector_project.settings
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=django-db # 使用 Django ORM 儲存 Celery 任務結果
+      # 這些環境變數可以從 .env 檔案讀取
+      - SECRET_KEY=${SECRET_KEY}
+      - DEBUG=${DEBUG}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - DATABASE_HOST=db
+      - DATABASE_PORT=${DATABASE_PORT}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_STORAGE_BUCKET_NAME=${AWS_STORAGE_BUCKET_NAME}
+      - AWS_S3_REGION_NAME=${AWS_S3_REGION_NAME}
 # 定義 Docker Volumes (用於持久化數據)
 volumes:
   postgres_data: # 用於儲存 PostgreSQL 資料庫檔案
   static_volume: # 用於儲存 Django collectstatic 收集的靜態檔案
+  redis_data: # 用於儲存 Redis 數據
