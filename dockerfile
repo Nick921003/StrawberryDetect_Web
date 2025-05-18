@@ -4,8 +4,10 @@ FROM python:3.12-slim
 
 # --- 環境變數 ---
 # 設定 Python 相關環境變數
-ENV PYTHONDONTWRITEBYTECODE 1  # 防止 Python 寫入 .pyc 文件
-ENV PYTHONUNBUFFERED 1      # 讓 Python 的輸出直接打印到終端，方便看 Log
+# 防止 Python 寫入 .pyc 文件
+ENV PYTHONDONTWRITEBYTECODE=1
+# 讓 Python 的輸出直接打印到終端，方便看 Log
+ENV PYTHONUNBUFFERED=1
 # 設定 Django settings 模組 (如果 manage.py 或 wsgi.py 需要)
 # ENV DJANGO_SETTINGS_MODULE=detector_project.settings # 取消註解並改成你的 settings 路徑
 # 設定 Gunicorn worker 數量 (可選，也可以在 CMD 或運行時指定)
