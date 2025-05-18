@@ -188,12 +188,12 @@
 * **請求體 (Request Body):** JSON 格式
     ```json
     {
-        "s3_bucket_name": "your-s3-bucket-name",
-        "s3_folder_prefix": "path/to/your/images_folder/"
+        "s3_bucket_name": "strawberrydetect2",
+        "s3_folder_prefix": "media/test/batch0X/"
     }
     ```
     * `s3_bucket_name` (string, required): 您的 AWS S3 儲存桶名稱。
-    * `s3_folder_prefix` (string, required): S3 儲存桶中圖片所在資料夾的路徑/前綴 (例如 `uploads/batch1/`，結尾的 `/` 可選，系統會自動處理)。
+    * `s3_folder_prefix` (string, required): S3 儲存桶中圖片所在資料夾的路徑/前綴 。
 * **成功回應 (Success Response):** `202 Accepted`
     ```json
     {
