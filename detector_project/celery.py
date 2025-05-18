@@ -1,11 +1,12 @@
 # detector_project/celery.py
 import os
 from celery import Celery
+import django
 
 # 設定 Django 的 settings 模組給 Celery。
 # 'detector_project' 應替換為你的專案名稱。
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'detector_project.settings')
-
+django.setup()
 app = Celery('detector_project')
 
 # 使用 Django settings.py 中的設定來配置 Celery。

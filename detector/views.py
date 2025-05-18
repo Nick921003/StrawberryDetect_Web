@@ -11,6 +11,7 @@ from django.conf import settings
 from django.core.files.base import ContentFile
 from .models import DetectionRecord, BatchDetectionJob
 from .services import process_image_bytes
+from .retention_manager import DataRetentionManager
 import logging
 
 view_logger = logging.getLogger(__name__)
@@ -74,13 +75,11 @@ def upload_detect_view(request):
                 'results': record.results_data
             })
 
-            # 清理舊紀錄
-            records_to_keep = 10
-            total = DetectionRecord.objects.count()
-            if total > records_to_keep:
-                old_ids = DetectionRecord.objects.order_by('uploaded_at') \
-                    .values_list('id', flat=True)[:total - records_to_keep]
-                DetectionRecord.objects.filter(id__in=old_ids).delete()
+            # 3. 清理舊的手動上傳記錄 (這裡可以選擇性地使用 DataRetentionManager)
+            try:
+                DataRetentionManager().run_immediate_manual_cleanup()
+            except Exception as cleanup_exc:
+                view_logger.error(f"在 View 中執行即時手動記錄清理時發生錯誤: {cleanup_exc}", exc_info=True)
 
             return render(request, 'detector/detection_result.html', context)
 
@@ -90,7 +89,6 @@ def upload_detect_view(request):
             return render(request, 'detector/upload_form.html', context)
 
     return render(request, 'detector/upload_form.html', context)
-
 
 @csrf_exempt 
 def api_process_view(request):
@@ -116,7 +114,6 @@ def api_process_view(request):
         view_logger.error(f"API 處理失敗: {e}\n{traceback.format_exc()}")
         return JsonResponse({'error': str(e)}, status=500)
 
-
 def detection_history_view(request):
     """
     顯示手動上傳的辨識紀錄列表 (DetectionRecord 中 batch_job 為 NULL 的)。
@@ -134,7 +131,6 @@ def detection_history_view(request):
     # 或者你可以為它創建一個新的 'manual_history.html' 模板，如果內容差異很大。
     # 假設 'detector/history.html' 模板可以通用地顯示 DetectionRecord 列表。
     return render(request, 'detector/history.html', context)
-
 
 def detection_detail_view(request, record_id):
     """
@@ -261,7 +257,6 @@ def batch_detection_detail_view(request, batch_job_id):
         'page_title': f"批次任務詳情 ({batch_job_id})",
     }
     return render(request, 'detector/batch_detail_result.html', context)
-
 
 def history_landing_view(request):
     """
