@@ -55,7 +55,7 @@ services:
   nginx:
     image: nginx:stable-alpine
     ports:
-      - "${NGINX_PORT:-8000}:80" # 可以用環境變數設定主機端口，預設8000
+      - "8000:80" # 可以用環境變數設定主機端口，預設8000
     volumes:
       - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
       - static_volume:/app/staticfiles:ro
