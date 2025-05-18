@@ -72,7 +72,7 @@ class DetectionRecord(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     batch_job = models.ForeignKey(
         BatchDetectionJob,
-        on_delete=models.SET_NULL,
+        on_delete=models.CASCADE, # 刪除批次任務時，刪除所有相關的辨識紀錄
         null=True,
         blank=True,
         related_name='detection_records',

@@ -4,11 +4,9 @@ import uuid # 雖然檔名由 task 生成，但保留以防未來其他用途
 import cv2 # OpenCV 用於影像處理
 from PIL import Image # Pillow 用於影像格式轉換和儲存
 from django.core.files.base import ContentFile # 用於將 bytes 轉換為 Django File Object
-# --- 修改：匯入 DetectionRecord 模型 ---
+# --- 匯入 DetectionRecord 模型 ---
 from .models import DetectionRecord
 from .inference_utils import run_yolo_inference_on_image_data, ImageDecodeError # YOLO 推論工具
-
-# --- 新增 logging (如果還沒有的話) ---
 import logging
 service_logger = logging.getLogger(__name__)
 
