@@ -78,7 +78,7 @@
 1.  **取得專案檔案：**
     * 透過 Git Clone：
         ```bash
-        git clone <你的 Git 倉庫 URL>
+        git clone https://github.com/Nick921003/StrawberryDetect_Web.git
         cd <專案目錄名稱>
         ```
     * 或者，確保你取得了 `docker-compose.yml`, `nginx.conf` 等必要設定檔，以及 `yolo/best.pt` 模型檔案。
