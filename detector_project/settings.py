@@ -158,19 +158,15 @@ CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler' # <-- 
 CELERY_BEAT_SCHEDULE = {
     'cleanup-every-night': {
         'task': 'detector.tasks.cleanup_old_detection_data_task',  # 指向我們在 tasks.py 中定義的任務
-        'schedule': crontab(hour=2, minute=30),  # 【修改點】例如：每天凌晨 2:30 執行
+        'schedule': crontab(hour=13, minute=27),  # 例如：每天凌晨 2:30 執行
         # 'args': (some_arg, another_arg), # 如果您的清理任務需要參數，可以在這裡提供
     },
-    # 您可以加入更多排程任務
-    # 'another-scheduled-task': {
-    #     'task': 'app_name.tasks.my_other_task',
-    #     'schedule': timedelta(hours=1), # 例如每小時執行一次
-    # },
 }
 
 # --- 清理任務參數設定 ---
-MANUAL_RECORDS_TO_KEEP_IMMEDIATE = 5  # 手動上傳記錄保留數量(即時)
-MANUAL_RECORDS_TO_KEEP = 10  # 手動上傳記錄保留數量(時間)
+# MANUAL_RECORDS_TO_KEEP_IMMEDIATE = 5  # 手動上傳記錄保留數量(即時)
+MANUAL_RECORDS_TO_KEEP = 2  # 手動上傳記錄保留數量(數量)
+DAYS_TO_KEEP_MANUAL_RECORDS = 0  # 手動上傳記錄保留天數(時間)
 DAYS_TO_KEEP_BATCHES = 0   # 批次任務記錄保留天數(時間)
 BATCH_JOBS_TO_KEEP_BY_COUNT = 2 # 批次任務記錄保留數量(數量)
 
