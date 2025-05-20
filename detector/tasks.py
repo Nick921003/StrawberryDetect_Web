@@ -11,24 +11,24 @@ from django.db.models import F
 from celery import shared_task, group
 from .retention_manager import DataRetentionManager
 from .models import BatchDetectionJob, DetectionRecord
-from .services import process_image_bytes, ImageDecodeError  # 假設服務層自訂例外
+from .services import process_image_bytes, ImageDecodeError
 import logging
 
 logger = logging.getLogger(__name__)
 
-# 最小圖檔大小 (bytes)
-MIN_VALID_IMAGE_SIZE = 1024
+# ====== 常數 ======
+MIN_VALID_IMAGE_SIZE = 1024  # 最小圖檔大小 (bytes)
 
 
+# ====== 工具函式 ======
 def _increment_batch_failure(batch_job_id):
-    """
-    批次失敗計數遞增。
-    """
+    """批次失敗計數遞增。"""
     BatchDetectionJob.objects.filter(id=batch_job_id).update(
         images_failed_to_process=F('images_failed_to_process') + 1
     )
 
 
+# ====== Celery 任務：單張 S3 圖片處理 ======
 @shared_task(bind=True, acks_late=True, time_limit=300, soft_time_limit=280, max_retries=3)
 def process_s3_image_task(self, s3_bucket, s3_key, batch_job_id=None):
     """
@@ -74,7 +74,8 @@ def process_s3_image_task(self, s3_bucket, s3_key, batch_job_id=None):
 
         if size < MIN_VALID_IMAGE_SIZE:
             logger.warning(f"{task_label}: 圖片過小 ({size} bytes)，略過")
-            if batch: _increment_batch_failure(batch.id)
+            if batch:
+                _increment_batch_failure(batch.id)
             self.update_state(state='FAILURE', meta={'exc_type': 'InvalidImage', 'exc_message': '圖檔過小'})
             return {
                 'status': 'FAILURE', 's3_key': s3_key,
@@ -83,7 +84,8 @@ def process_s3_image_task(self, s3_bucket, s3_key, batch_job_id=None):
             }
     except ClientError as err:
         logger.error(f"{task_label}: S3 下載錯誤: {err}", exc_info=True)
-        if batch: _increment_batch_failure(batch.id)
+        if batch:
+            _increment_batch_failure(batch.id)
         raise self.retry(exc=err, countdown=60 * (self.request.retries + 1))
 
     # 構建 DetectionRecord
@@ -125,7 +127,8 @@ def process_s3_image_task(self, s3_bucket, s3_key, batch_job_id=None):
 
     except ImageDecodeError as ide:
         logger.error(f"{task_label}: 圖片解碼錯誤: {ide}", exc_info=True)
-        if batch: _increment_batch_failure(batch.id)
+        if batch:
+            _increment_batch_failure(batch.id)
         record.results_data = {'error': str(ide), 'original_s3_key': s3_key}
         record.severity_score = 1.0
         record.save()
@@ -138,7 +141,8 @@ def process_s3_image_task(self, s3_bucket, s3_key, batch_job_id=None):
 
     except Exception as ex:
         logger.error(f"{task_label}: 處理錯誤: {ex}", exc_info=True)
-        if batch: _increment_batch_failure(batch.id)
+        if batch:
+            _increment_batch_failure(batch.id)
         if not record.pk:
             record.results_data = {'error': str(ex), 'original_s3_key': s3_key}
             record.severity_score = 1.0
@@ -151,6 +155,7 @@ def process_s3_image_task(self, s3_bucket, s3_key, batch_job_id=None):
         }
 
 
+# ====== Celery 任務：批次彙總與清理 ======
 @shared_task(bind=True, name="detector.tasks.finalize_batch_processing")
 def finalize_batch_processing_task(self, results, batch_job_id):
     """
@@ -219,6 +224,7 @@ def finalize_batch_processing_task(self, results, batch_job_id):
     return {'status': 'FINALIZED', 'batch_job_id': str(batch.id), 'final_status': batch.status}
 
 
+# ====== Celery 任務：定期清理舊資料 ======
 @shared_task(name="detector.tasks.cleanup_old_detection_data")
 def cleanup_old_detection_data_task():
     """定期清理舊偵測資料。"""
@@ -233,6 +239,7 @@ def cleanup_old_detection_data_task():
         return f"Cleanup failed: {e}"
 
 
+# ====== Celery 任務：批次處理 S3 資料夾 ======
 @shared_task(bind=True, time_limit=3600, soft_time_limit=3500, max_retries=2)
 def process_s3_folder_task(self, s3_bucket, s3_prefix):
     """
