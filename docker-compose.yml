@@ -50,7 +50,6 @@ services:
       - AWS_STORAGE_BUCKET_NAME=${AWS_STORAGE_BUCKET_NAME}
       - AWS_S3_REGION_NAME=${AWS_S3_REGION_NAME}
 
-
   # 服務 3: Nginx 反向代理 (保持不變)
   nginx:
     image: nginx:stable-alpine
@@ -77,7 +76,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-
 
   # 服務 5: Celery Worker (執行背景任務) (基本保持不變)
   celery_worker:
