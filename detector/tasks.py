@@ -225,7 +225,7 @@ def finalize_batch_processing_task(self, results, batch_job_id):
 
 
 # ====== Celery 任務：定期清理舊資料 ======
-@shared_task(name="detector.tasks.cleanup_old_detection_data")
+@shared_task(name="detector.tasks.cleanup_old_detection_data_task")
 def cleanup_old_detection_data_task():
     """定期清理舊偵測資料。"""
     label = "Task-CleanupOldData"
