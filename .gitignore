@@ -1,6 +1,7 @@
 # --- Project Specific ---
 # Python Virtual Environment
 venv/
+.git_backup/
 
 # Environment variables
 .env
