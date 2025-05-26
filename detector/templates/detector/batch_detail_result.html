@@ -39,7 +39,7 @@
             批次摘要分析
         </div>
         <div class="card-body">
-            {% if batch_summary.message %}
+            {% if batch_summary.message == "摘要資訊正在生成中，請稍後重新整理頁面。" %}
                 <p class="card-text">{{ batch_summary.message }}</p>
             {% endif %}
             {% if batch_summary.overall_status_guess %}
@@ -57,7 +57,7 @@
                 <h6>病害統計:</h6>
                 <ul>
                 {% for disease, data in batch_summary.disease_statistics.items %}
-                    <li>{{ disease }}: 發現 {{ data.count }} 處, 平均嚴重度 {{ data.average_severity|floatformat:2 }}</li>
+                    <li>{{ disease }}: 發現 {{ data.count }} 處</li>
                 {% endfor %}
                 </ul>
                 {% if batch_summary.healthy_plants_ratio %}

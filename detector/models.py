@@ -118,74 +118,59 @@ class DetectionRecord(models.Model):
 
     def calculate_severity_score(self):
         if not self.results_data:
-            self.severity_score = None # 或者 0.0 如果你希望無檢測結果視為無嚴重性
+            self.severity_score = None
             return
 
-        # --- 評分參數設定  ---
-        BASE_SCORE_HEALTHY = 0.05
-        BASE_SCORE_ANGULAR_LEAF_SPOT = 0.4 # 檢測到角斑病的基礎分
-        
-        # 信心度對評分的影響因子 (0 到 1 之間，越高則信心度影響越大)
-        CONFIDENCE_FACTOR_ANGULAR = 0.6 
-        
-        # 如果一張圖中有多個角斑病檢測框，每個額外框增加的分數 (可以設為0如果不考慮數量)
-        PER_DETECTION_BONUS_ANGULAR = 0.05 # 暫不使用，簡化邏輯
+        # 可擴展的 class 參數設定
+        CLASS_PARAMS = {
+            'angular leaf spot': {
+                'base': 0.4,
+                'confidence_factor': 0.6,
+                'per_detection_bonus': 0.05,
+            },
+            'healthy': {
+                'base': 0.05,
+                'confidence_factor': 0.05,
+                'per_detection_bonus': 0.0,
+            },
+            # 其他病害可在此擴充
+        }
 
-        # --- 初始化 ---
-        final_score = 0.0
-        is_healthy_detected = False
-        highest_healthy_confidence = 0.0
-        
-        angular_leaf_spot_detections = []
-
-        # --- 遍歷所有檢測結果 ---
+        # 統計每個 class 的 confidence
+        class_confidences = {}
         for detection in self.results_data:
-            class_name = detection.get('class', '').strip().lower() # strip() 去除前後空格
+            class_name = detection.get('class', '').strip().lower()
             confidence = detection.get('confidence_float', 0.0)
+            class_confidences.setdefault(class_name, []).append(confidence)
 
-            if class_name == 'healthy':
-                is_healthy_detected = True
-                if confidence > highest_healthy_confidence:
-                    highest_healthy_confidence = confidence
-            
-            elif class_name == 'angular leaf spot':
-                angular_leaf_spot_detections.append(confidence) # 收集所有角斑病的信心度
+        # 先處理所有病害類別（排除 healthy）
+        disease_scores = []
+        for cls, params in CLASS_PARAMS.items():
+            if cls == 'healthy':
+                continue
+            if cls in class_confidences:
+                confs = class_confidences[cls]
+                score = params['base']
+                if confs:
+                    score += max(confs) * params['confidence_factor']
+                    score += (len(confs) - 1) * params['per_detection_bonus'] if len(confs) > 0 else 0
+                disease_scores.append(score)
 
-        # --- 計算最終評分 ---
-        if angular_leaf_spot_detections:
-            # 如果檢測到角斑病
-            current_disease_score = BASE_SCORE_ANGULAR_LEAF_SPOT
-            
-            # 取信心度最高的那個角斑病檢測作為主要評分依據
-            if angular_leaf_spot_detections:
-                max_confidence_angular = max(angular_leaf_spot_detections)
-                # 信心度加權：(信心度 * 影響因子) 作為額外加分
-                current_disease_score += max_confidence_angular * CONFIDENCE_FACTOR_ANGULAR
-            
-            # 如果考慮數量 (可選，目前註釋掉的 PER_DETECTION_BONUS_ANGULAR)
-            current_disease_score += (len(angular_leaf_spot_detections) -1) * PER_DETECTION_BONUS_ANGULAR if len(angular_leaf_spot_detections) > 0 else 0
-
-            final_score = current_disease_score
-            
-        elif is_healthy_detected:
-            # 如果只檢測到健康 (沒有檢測到任何角斑病)
-            # 可以讓健康的信心度稍微降低一點點總分 (如果final_score之前被其他輕微問題加分了)
-            # 或者直接給一個固定的健康分數
-            final_score = max(0, final_score - highest_healthy_confidence * 0.05)
-
+        # 取所有病害分數的最大值（最嚴重的病害為主）
+        if disease_scores:
+            final_score = max(disease_scores)
+        elif 'healthy' in class_confidences:
+            # 只檢測到 healthy
+            healthy_confs = class_confidences['healthy']
+            final_score = CLASS_PARAMS['healthy']['base']
+            if healthy_confs:
+                final_score = max(0, final_score - max(healthy_confs) * CLASS_PARAMS['healthy']['confidence_factor'])
         else:
-            # 既沒有角斑病，也沒有明確的健康標籤，但 results_data 不為空
-            # (這種情況在你的模型只有兩個類別時比較少見，除非信心度都很低沒有任何輸出)
-            if self.results_data: # 確認 results_data 確實有內容但沒匹配上
-                final_score = 0.2 # 給一個較低的不確定分數
-            else: # results_data 為空 (YOLO 沒檢測到任何東西)
-                self.severity_score = None # 或者 0.0
-                return
-        
-        # --- 標準化分數到 0.0 - 1.0 範圍 ---
+            # 既沒有病害也沒有 healthy，但有其他未知類別
+            final_score = 0.2
+
+        # 標準化分數到 0.0 - 1.0
         self.severity_score = min(max(final_score, 0.0), 1.0)
-        
-        # 四捨五入到小數點後兩位 (可選)
         if self.severity_score is not None:
             self.severity_score = round(self.severity_score, 2)
 
