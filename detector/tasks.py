@@ -28,6 +28,71 @@ def _increment_batch_failure(batch_job_id):
     )
 
 
+def generate_batch_summary(results, batch):
+    """
+    封裝批次摘要分析邏輯，回傳 summary dict。
+    """
+    success, fail = 0, 0
+    total_score, score_count = 0.0, 0
+    agg_counts = {}
+    class_severity = {}
+    total_boxes = 0
+    healthy_boxes = 0
+
+    for r in results:
+        if not isinstance(r, dict) or 'processed' not in r:
+            continue
+        if r['status'] == 'SUCCESS':
+            success += 1
+            if r.get('severity_score') is not None:
+                try:
+                    total_score += float(r['severity_score'])
+                    score_count += 1
+                except (TypeError, ValueError):
+                    pass
+            for item in r.get('results_data', []) or []:
+                cls = item.get('class', 'unknown')
+                agg_counts[cls] = agg_counts.get(cls, 0) + 1
+                total_boxes += 1
+                if cls == 'healthy':
+                    healthy_boxes += 1
+                sev = item.get('severity')
+                if sev is not None:
+                    class_severity.setdefault(cls, []).append(float(sev))
+        else:
+            fail += 1
+
+    avg_score = round(total_score / score_count, 3) if score_count else None
+    disease_statistics = {}
+    for cls, count in agg_counts.items():
+        avg_sev = None
+        if cls in class_severity and class_severity[cls]:
+            avg_sev = round(sum(class_severity[cls]) / len(class_severity[cls]), 2)
+        disease_statistics[cls] = {"count": count, "average_severity": avg_sev}
+
+    healthy_ratio = round(healthy_boxes / total_boxes, 2) if total_boxes else None
+    if disease_statistics.get('angular leaf spot', {}).get('count', 0) > 0:
+        recommendations = "建議對檢測到角斑病的區域進行觀察，並考慮預防性措施。"
+    else:
+        recommendations = "田區狀況良好，持續觀察即可。"
+    overall_status_guess = "多數健康" if healthy_boxes > (total_boxes - healthy_boxes) else "需注意病害情況"
+
+    summary = {
+        "stats": {
+            "檢測到健康植株的框數": healthy_boxes,
+            "總檢測框數": total_boxes,
+            "成功處理圖片數": success,
+            "處理失敗圖片數": fail,
+        },
+        "overall_status_guess": overall_status_guess,
+        "disease_statistics": disease_statistics,
+        "healthy_plants_ratio": healthy_ratio,
+        "average_severity_score": avg_score,
+        "recommendations": recommendations,
+    }
+    return summary
+
+
 # ====== Celery 任務：單張 S3 圖片處理 ======
 @shared_task(bind=True, acks_late=True, time_limit=300, soft_time_limit=280, max_retries=3)
 def process_s3_image_task(self, s3_bucket, s3_key, batch_job_id=None):
@@ -170,46 +235,21 @@ def finalize_batch_processing_task(self, results, batch_job_id):
         logger.error(f"{task_label}: BatchJob 不存在，跳過")
         return
 
-    # 彙總計數與狀態
-    success, fail = 0, 0
-    total_score, score_count = 0.0, 0
-    agg_counts = {}
+    # 呼叫封裝後的摘要分析
+    summary = generate_batch_summary(results, batch)
 
-    for r in results:
-        if not isinstance(r, dict) or 'processed' not in r:
-            logger.warning(f"{task_label}: 非預期結果: {r}")
-            continue
-        if r['status'] == 'SUCCESS':
-            success += 1
-            if r.get('severity_score') is not None:
-                try:
-                    total_score += float(r['severity_score'])
-                    score_count += 1
-                except (TypeError, ValueError):
-                    logger.warning(f"{task_label}: 無效嚴重度: {r['severity_score']}")
-            for cls, cnt in r.get('class_counts', {}).items():
-                agg_counts[cls] = agg_counts.get(cls, 0) + cnt
-        else:
-            fail += 1
-
-    # 更新 BatchDetectionJob 欄位與狀態
-    batch.images_processed_successfully = success
-    batch.images_failed_to_process = batch.total_images_found - success
-    if fail == 0:
+    # 更新 BatchDetectionJob 狀態
+    # 這裡 summary 內已經有 success/fail 統計
+    batch.images_processed_successfully = summary['stats']['成功處理圖片數']
+    batch.images_failed_to_process = summary['stats']['處理失敗圖片數']
+    if summary['stats']['處理失敗圖片數'] == 0:
         batch.status = BatchDetectionJob.StatusChoices.COMPLETED
-    elif success > 0:
+    elif summary['stats']['成功處理圖片數'] > 0:
         batch.status = BatchDetectionJob.StatusChoices.PARTIAL_COMPLETION
     else:
         batch.status = BatchDetectionJob.StatusChoices.FAILED
         batch.error_message = batch.error_message or "All images failed."
 
-    # 計算平均嚴重度
-    avg_score = round(total_score / score_count, 3) if score_count else None
-    summary = {
-        "message": f"Found {batch.total_images_found}, success {success}, failed {fail}",
-        "detected_classes_summary": agg_counts,
-        "average_severity_score": avg_score
-    }
     batch.summary_results = summary
     batch.save()
 

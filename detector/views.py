@@ -206,49 +206,10 @@ def batch_detection_detail_view(request, batch_job_id):
     # )
     # 或者，如果 severity_score 不會有 NULL (例如預設為0)，可以直接：
     detection_records = batch_job.detection_records.all().order_by('-severity_score', '-uploaded_at')
-    # 增加按上傳時間排序作為次要排序標準
 
-    # (可選) 準備批次摘要數據，如果 summary_results 欄位還未被自動計算填充
-    # 這裡的 summary_results 應該是由 Celery 任務在所有子任務完成後計算並填入 BatchDetectionJob 模型的
-    # 如果還沒實現自動計算，這裡可以先顯示 "摘要正在生成中" 或顯示基本統計
     batch_summary = batch_job.summary_results
     if not batch_summary:
-        # 如果 summary_results 為空，可以嘗試即時生成一個非常基礎的摘要
-        # 注意：這部分邏輯最好是放在 Celery 任務中異步完成，避免請求超時
-        # 這裡只做一個非常簡單的示例，不建議在 View 中做複雜計算
-        num_healthy = 0
-        num_angular_leaf_spot = 0
-        for record in detection_records:
-            if record.results_data and isinstance(record.results_data, list):
-                for res in record.results_data:
-                    if res.get('class') == 'healthy':
-                        num_healthy +=1
-                    elif res.get('class') == 'angular leaf spot':
-                        num_angular_leaf_spot +=1
-        
-        if batch_job.total_images_found > 0:
-            batch_summary = {
-                "message": f"初步分析：共處理 {batch_job.total_images_found} 張圖片。",
-                "stats": {
-                    "檢測到健康植株的圖片數 (估計)": num_healthy, # 這不是圖片數，是檢測框數
-                    "檢測到角斑病的圖片數 (估計)": num_angular_leaf_spot, # 同上
-                    "成功處理圖片數": batch_job.images_processed_successfully,
-                    "處理失敗圖片數": batch_job.images_failed_to_process,
-                },
-                "overall_status_guess": "多數健康" if num_healthy > num_angular_leaf_spot else "需注意病害情況"
-            }
-            # 實際上，summary_results 應該更複雜，例如：
-            # batch_summary = {
-            #     "overall_health_description": "田區整體健康狀況良好，僅少量植株出現角斑病初期症狀。",
-            #     "disease_statistics": {
-            #         "angular_leaf_spot": {"count": 5, "average_severity": 0.6},
-            #         "healthy_plants_ratio": 0.85
-            #     },
-            #     "recommendations": "建議對檢測到角斑病的區域進行觀察，並考慮預防性措施。"
-            # }
-        else:
-            batch_summary = {"message": "此批次沒有找到圖片或摘要尚未生成。"}
-
+        batch_summary = {"message": "摘要資訊正在生成中，請稍後重新整理頁面。"}
 
     context = {
         'batch_job': batch_job,
