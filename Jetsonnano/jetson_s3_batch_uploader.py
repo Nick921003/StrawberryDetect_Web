@@ -16,7 +16,7 @@ import requests
 S3_BUCKET_NAME = 'strawberrydetect2'  # S3 儲存桶名稱
 S3_BASE_TARGET_PATH = 'media/test/'   # S3 儲存桶中的基礎路徑 (如 'test/' 或 'rover_uploads/')
 # Jetson Nano 本地圖片資料夾設定
-LOCAL_BATCHES_PARENT_DIR = 'local_image_batches/'  # 批次資料夾上層目錄
+LOCAL_BATCHES_PARENT_DIR = 'jetsonnano/local_image_batches/'  # 批次資料夾上層目錄
 CURRENT_BATCH_FOLDER_NAME = 'batch02'              # 要上傳的批次資料夾名稱
 
 # =====================
