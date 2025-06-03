@@ -184,7 +184,7 @@ def process_s3_image_task(self, s3_bucket, s3_key, batch_job_id=None):
             'status': 'SUCCESS', 'record_id': str(processed.id),
             's3_key': s3_key,
             'original_image_url': getattr(processed.original_image, 'url', None),
-            'annotated_image_url': getattr(processed.annotated_image, 'url', None),
+            'annotated_image_url': processed.annotated_image.url if processed.annotated_image and processed.annotated_image.name else None,
             'results_data': processed.results_data,
             'severity_score': processed.severity_score,
             'class_counts': counts, 'processed': True
