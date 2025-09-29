@@ -27,6 +27,8 @@ Pillow>=11.0.0
 opencv-python-headless>=4.11
 numpy>=1.24
 
+whitenoise
+
 # --- YOLOv11 相關 ---
 # 注意：torch 和 torchvision 請在 setup.sh 中手動指定為 CPU-only
 # ultralytics 也請分開安裝以避免自動抓 CUDA torch

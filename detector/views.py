@@ -9,6 +9,7 @@ from django.http import JsonResponse, HttpResponseBadRequest
 from django.views.decorators.csrf import csrf_exempt
 from django.conf import settings
 from django.core.files.base import ContentFile
+from django.apps import apps # <-- 新增：匯入 Django apps 模組，這是標準做法
 from .models import DetectionRecord, BatchDetectionJob
 from .services import process_image_bytes
 from .retention_manager import DataRetentionManager
@@ -29,17 +30,23 @@ def upload_detect_view(request):
         'limit_notice': "系統僅保留最近 10 筆辨識紀錄。"
     }
 
+    # --- ↓↓↓ 修改區塊開始 ↓↓↓ ---
     # 檢查 YOLO 模型是否載入
     try:
-        from .apps import yolo_model
+        # 修改：改用標準方式從 AppConfig 獲取模型
+        yolo_model = apps.get_app_config('detector').yolo_model 
+        
         if yolo_model is None:
             raise RuntimeError("YOLO model is not loaded.")
+            
         if hasattr(yolo_model, 'names') and isinstance(yolo_model.names, dict):
             context['class_names'] = list(yolo_model.names.values())
+            
     except Exception as e:
         view_logger.error(f"載入 YOLO 模型時出錯: {e}", exc_info=True)
         context['error_message'] = f"載入 YOLO 模型時出錯: {e}"
         return render(request, 'detector/upload_form.html', context)
+    # --- ↑↑↑ 修改區塊結束 ↑↑↑ ---
 
     if request.method == 'POST':
         try:
@@ -53,21 +60,16 @@ def upload_detect_view(request):
             file_ext = os.path.splitext(uploaded_file.name)[1].lower() or '.jpg'
 
             # 為手動上傳創建一個 DetectionRecord 實例 (batch_job 為 None)
-            # 這個 record 實例還沒有儲存到資料庫，也沒有圖片或結果數據
             manual_record_instance = DetectionRecord() 
-            # 注意：對於手動上傳，manual_record_instance.batch_job 會是 None，這是正確的。
 
             # 2. 使用 service 處理影像，並傳入我們創建的實例
             record = process_image_bytes(
                 image_bytes=image_bytes, 
                 file_ext=file_ext,
-                # confidence 參數可以從 settings 或 request 中獲取，如果需要的話
-                confidence=0.5, # 或者你希望手動上傳使用不同的信心閾值
-                detection_record_instance=manual_record_instance # <-- 傳遞實例
+                confidence=0.5,
+                detection_record_instance=manual_record_instance
             )
-            # process_image_bytes 內部會填充這個 record 並儲存它
-
-            # 組成 context
+            
             context.update({
                 'record_id': record.id,
                 'uploaded_image_url': record.original_image.url,
@@ -75,7 +77,7 @@ def upload_detect_view(request):
                 'results': record.results_data
             })
 
-            # 3. 清理舊的手動上傳記錄 (這裡可以選擇性地使用 DataRetentionManager)
+            # 3. 清理舊的手動上傳記錄
             try:
                 DataRetentionManager().run_immediate_manual_cleanup()
             except Exception as cleanup_exc:
@@ -102,7 +104,6 @@ def api_process_view(request):
             return HttpResponseBadRequest("缺少 image_base64 欄位")
 
         image_bytes = base64.b64decode(img_b64)
-        # 明確建立 batch_job=None 的 DetectionRecord 實例
         manual_record_instance = DetectionRecord()
         record = process_image_bytes(image_bytes, file_ext='.jpg', detection_record_instance=manual_record_instance)
 
@@ -120,18 +121,12 @@ def detection_history_view(request):
     """
     顯示手動上傳的辨識紀錄列表 (DetectionRecord 中 batch_job 為 NULL 的)。
     """
-    # 只查詢 batch_job 為 NULL 的 DetectionRecord
     manual_records = DetectionRecord.objects.filter(batch_job__isnull=True).order_by('-uploaded_at')[:10]
-    # 你可以保留或調整 [:10] 來限制數量
-
     context = {
         'records': manual_records,
         'page_title': "手動上傳辨識紀錄",
-        'limit_notice': "僅顯示最近 10 筆手動上傳的辨識紀錄。" # 或者你希望顯示所有手動記錄
+        'limit_notice': "僅顯示最近 10 筆手動上傳的辨識紀錄。"
     }
-    # 這個 View 應該繼續使用 'detector/history.html' 模板，
-    # 或者你可以為它創建一個新的 'manual_history.html' 模板，如果內容差異很大。
-    # 假設 'detector/history.html' 模板可以通用地顯示 DetectionRecord 列表。
     return render(request, 'detector/history.html', context)
 
 def detection_detail_view(request, record_id):
@@ -139,33 +134,31 @@ def detection_detail_view(request, record_id):
     顯示單張 DetectionRecord 的詳細辨識結果。
     """
     record = get_object_or_404(DetectionRecord, pk=record_id)
-    
-    # 從請求的 GET 參數中獲取 from_batch (如果有的話)
-    from_batch_id = request.GET.get('from_batch') # 獲取查詢參數
-
-    # 準備 class_names 給模板中的篩選器 (如果你的結果頁有類別篩選器的話)
-    # 這部分邏輯你原本可能就有，如果 yolo_model 在 apps.py 中正確載入
+    from_batch_id = request.GET.get('from_batch')
     class_names_for_template = []
+    
+    # --- ↓↓↓ 修改區塊開始 ↓↓↓ ---
     try:
-        from .apps import yolo_model # 確保 yolo_model 能被正確引用
+        # 修改：改用標準方式從 AppConfig 獲取模型
+        yolo_model = apps.get_app_config('detector').yolo_model
+        
         if yolo_model and hasattr(yolo_model, 'names') and isinstance(yolo_model.names, dict):
             class_names_for_template = list(yolo_model.names.values())
-    except ImportError:
-        view_logger.warning("YOLO model could not be imported for class_names in detection_detail_view.")
+            
     except Exception as e:
+        # 修改：移除了 ImportError，因為我們不再直接 import
         view_logger.error(f"Error getting class_names in detection_detail_view: {e}", exc_info=True)
-
+    # --- ↑↑↑ 修改區塊結束 ↑↑↑ ---
 
     context = {
-        'record': record, # 傳遞整個 record 物件，模板中可以訪問 record.original_image.url 等
+        'record': record,
         'uploaded_image_url': record.original_image.url if record.original_image else None,
         'annotated_image_url': record.annotated_image.url if record.annotated_image else None,
         'results': record.results_data or [],
-        'record_id': record.id, # 雖然 record 物件裡有 id，但明確傳遞有時更方便
-        'severity_score': record.severity_score, # <-- 新增：傳遞嚴重程度評分
-        'class_names': class_names_for_template, # <-- 確保傳遞 class_names
-        # 'limit_notice': "系統僅保留最近 10 筆辨識紀錄。", # 這個提示可能不再適用於單圖詳情頁
-        'from_batch_id': from_batch_id, # <-- 新增：將 from_batch_id 傳遞給模板
+        'record_id': record.id,
+        'severity_score': record.severity_score,
+        'class_names': class_names_for_template,
+        'from_batch_id': from_batch_id,
         'page_title': f"辨識結果詳情 ({str(record.id)[:8]}...)",
     }
     return render(request, 'detector/detection_result.html', context)
@@ -174,39 +167,20 @@ def batch_detection_history_view(request):
     """
     顯示所有批次辨識任務的歷史列表。
     """
-    # 查詢所有的 BatchDetectionJob 記錄，按創建時間倒序排列 (最新的在前面)
     batch_jobs = BatchDetectionJob.objects.all().order_by('-created_at')
-    
-    # 也可以在這裡加入分頁邏輯，如果批次任務很多的話
-    # from django.core.paginator import Paginator
-    # paginator = Paginator(batch_jobs, 10) # 每頁顯示 10 個批次任務
-    # page_number = request.GET.get('page')
-    # page_obj = paginator.get_page(page_number)
-
     context = {
-        'batch_jobs': batch_jobs, # 或者 page_obj 如果使用分頁
-        'page_title': "批次辨識歷史紀錄", # 給模板一個頁面標題
-        'limit_notice': "顯示所有已提交的批次辨識任務。" # 可以根據需要修改提示
+        'batch_jobs': batch_jobs,
+        'page_title': "批次辨識歷史紀錄",
+        'limit_notice': "顯示所有已提交的批次辨識任務。"
     }
     return render(request, 'detector/batch_history.html', context)
 
 def batch_detection_detail_view(request, batch_job_id):
     """
-    顯示特定批次辨識任務的詳細結果。
-    包括批次摘要和該批次下所有圖片的辨識記錄 (按嚴重程度排序)。
-    """
-    # 根據傳入的 batch_job_id 獲取 BatchDetectionJob 實例，如果不存在則返回 404
-    batch_job = get_object_or_404(BatchDetectionJob, pk=batch_job_id)
 
-    # 查詢所有與此 BatchDetectionJob 相關聯的 DetectionRecord 實例
-    # 使用 related_name 'detection_records' 進行反向查詢
-    # 並按照 severity_score 降序排列 (None 值排在後面或前面，取決於資料庫，通常 NULLS LAST)
-    # 為了確保 None 值排在後面，可以這樣處理 (如果 severity_score 允許 NULL):
-    # from django.db.models import F, Q, Func
-    # detection_records = batch_job.detection_records.all().order_by(
-    #     F('severity_score').desc(nulls_last=True)
-    # )
-    # 或者，如果 severity_score 不會有 NULL (例如預設為0)，可以直接：
+    顯示特定批次辨識任務的詳細結果。
+    """
+    batch_job = get_object_or_404(BatchDetectionJob, pk=batch_job_id)
     detection_records = batch_job.detection_records.all().order_by('-severity_score', '-uploaded_at')
 
     batch_summary = batch_job.summary_results
@@ -216,7 +190,7 @@ def batch_detection_detail_view(request, batch_job_id):
     context = {
         'batch_job': batch_job,
         'detection_records': detection_records,
-        'batch_summary': batch_summary, # 傳遞批次摘要
+        'batch_summary': batch_summary,
         'page_title': f"批次任務詳情 ({batch_job_id})",
     }
     return render(request, 'detector/batch_detail_result.html', context)

@@ -1,73 +1,78 @@
 # detector/inference_utils.py
+
+# --- ↓↓↓ 請從這裡開始完整複製 ↓↓↓ ---
+
+import io
 import cv2
 import numpy as np
-import os
-import logging # <-- 新增 logging
-from .apps import yolo_model
+from PIL import Image
+from django.conf import settings
+from django.apps import apps
+import logging
 
-# 設定此模組的 logger
-inference_logger = logging.getLogger(__name__) #或者 'detector.inference_utils'
+inference_logger = logging.getLogger(__name__)
 
 class ImageDecodeError(Exception):
-    """自訂異常，用於表示圖片解碼失敗。"""
+    """自定義異常，用於表示圖片解碼失敗。"""
     pass
 
-def run_yolo_inference_on_image_data(image_bytes, confidence_threshold=0.5):
+
+def run_yolo_inference_on_image_data(image_bytes: bytes, confidence_threshold: float = 0.5) -> tuple:
     """
-    使用預先載入的 YOLO 模型對記憶體中的圖片數據執行推論。
+    對給定的圖片字節執行 YOLO 推論。
+
+    Args:
+        image_bytes: 圖片的二進位內容。
+        confidence_threshold: 信心水準閾值。
+
+    Returns:
+        一個元組，包含：
+        - annotated_image_array (np.ndarray): 帶有標註框的圖片陣列 (BGR 格式)，如果沒有偵測結果則為原始圖片陣列。
+        - detections (list[dict]): 偵測結果的字典列表，每個字典包含 'class', 'confidence_float', 'confidence_str', 'box'。
     """
-    if yolo_model is None:
-        inference_logger.error("YOLO 模型尚未成功載入 (inference_utils)。")
+    try:
+        pil_image = Image.open(io.BytesIO(image_bytes))
+        if pil_image.mode != 'RGB':
+            pil_image = pil_image.convert('RGB')
+    except Exception as e:
+        inference_logger.error(f"Pillow failed to decode image: {e}")
+        raise ImageDecodeError(f"Failed to decode image: {e}")
+
+    model = apps.get_app_config('detector').yolo_model
+    if not model:
+        inference_logger.critical("YOLO model is not loaded in the app config.")
         raise RuntimeError("YOLO model is not loaded.")
 
-    annotated_image_array = None
-    text_results = []
-
-    if not image_bytes:
-        inference_logger.warning("傳入的 image_bytes 為空 (inference_utils)。")
-        raise ImageDecodeError("Input image_bytes is empty.")
-
-    inference_logger.debug(f"Attempting to decode image_bytes of length: {len(image_bytes)}")
-
     try:
-        nparr = np.frombuffer(image_bytes, np.uint8)
-        img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        results = model(pil_image, conf=confidence_threshold)
+        result = results[0] if results else None
 
-        if img is None:
-            inference_logger.error(f"無法從位元組數據解碼圖片 (cv2.imdecode returned None). Bytes length: {len(image_bytes)} (inference_utils).")
-            # 拋出一個更特定的錯誤，而不是僅僅回傳 None, []
-            raise ImageDecodeError(f"cv2.imdecode failed for image_bytes of length {len(image_bytes)}.")
-        
-        inference_logger.info(f"成功從位元組數據解碼圖片進行推論 (尺寸: {img.shape})")
+        rgb_image_array = np.array(pil_image)
+        bgr_image_array = cv2.cvtColor(rgb_image_array, cv2.COLOR_RGB2BGR)
 
-        results = yolo_model(img, conf=confidence_threshold)
+        if result is None or len(result.boxes) == 0:
+            return bgr_image_array, []
 
-        if results and results[0] and results[0].boxes is not None:
-            if len(results[0].boxes) > 0:
-                inference_logger.info(f"偵測到 {len(results[0].boxes)} 個物件 (信心度 > {confidence_threshold})")
-                annotated_image_array = results[0].plot() 
-                
-                names = yolo_model.names
-                for box in results[0].boxes:
-                    class_id = int(box.cls.item())
-                    conf = box.conf.item()
-                    class_name = names.get(class_id, f"未知類別 {class_id}")
-                    text_results.append({
-                        'class': class_name,
-                        'confidence_str': f"{conf:.2f}",
-                        'confidence_float': conf
-                    })
-            else:
-                inference_logger.info(f"在此圖片上未偵測到信心度高於 {confidence_threshold} 的物件。")
-        else:
-            inference_logger.warning("模型推論結果格式異常或為空。")
+        annotated_image_array = result.plot()
 
-    except ImageDecodeError: # 直接重新拋出我們自訂的解碼錯誤
-        raise
+        detections = []
+        boxes = result.boxes.xyxy.cpu().numpy()
+        confs = result.boxes.conf.cpu().numpy()
+        clss = result.boxes.cls.cpu().numpy()
+
+        for i in range(len(boxes)):
+            # --- 核心修正：產生前端樣板需要的 'confidence_float' 和 'confidence_str' ---
+            conf_float = float(confs[i])
+            detection_info = {
+                'class': model.names[int(clss[i])],
+                'confidence_float': conf_float,
+                'confidence_str': f"{conf_float:.2f}", # 格式化為兩位小數的字串
+                'box': [float(coord) for coord in boxes[i]]
+            }
+            detections.append(detection_info)
+
+        return annotated_image_array, detections
+
     except Exception as e:
-        inference_logger.error(f"執行 YOLO 推論或處理結果時發生錯誤: {e}", exc_info=True)
-        # 對於其他未知錯誤，也可以考慮將其包裝或直接拋出
-        # 這裡我們讓它作為一個通用錯誤被上層捕獲
-        raise RuntimeError(f"YOLO inference processing error: {e}")
-
-    return annotated_image_array, text_results
+        inference_logger.error(f"An unexpected error occurred during YOLO inference: {e}", exc_info=True)
+        raise RuntimeError(f"An error occurred during YOLO inference: {e}")
