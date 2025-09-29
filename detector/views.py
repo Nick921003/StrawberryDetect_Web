@@ -102,7 +102,9 @@ def api_process_view(request):
             return HttpResponseBadRequest("缺少 image_base64 欄位")
 
         image_bytes = base64.b64decode(img_b64)
-        record = process_image_bytes(image_bytes, file_ext='.jpg')
+        # 明確建立 batch_job=None 的 DetectionRecord 實例
+        manual_record_instance = DetectionRecord()
+        record = process_image_bytes(image_bytes, file_ext='.jpg', detection_record_instance=manual_record_instance)
 
         return JsonResponse({
             'record_id': str(record.id),

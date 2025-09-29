@@ -20,7 +20,7 @@ services:
   web:
     build: .
     image: nick45320639/strawberrydetect:latest
-    # command: python manage.py runserver 0.0.0.0:8000 # 開發時用
+    command: gunicorn detector_project.wsgi:application --bind 0.0.0.0:8000 --timeout 120
     volumes:
       - .:/app # 開發時掛載程式碼，生產時建議從映像檔執行
       - static_volume:/app/staticfiles
