@@ -34,4 +34,27 @@ Thumbs.db
 *.sublime-project
 *.sublime-workspace
 
+# 忽略所有 .git 子儲存庫
+*.git/
+
+# 忽略 bfg 工具的日誌
+*.bfg-report/
+
+# 忽略 Windows 系統的 Zone.Identifier 檔案
+*:Zone.Identifier
+
+# 忽略 Python 虛擬環境
+venv/
+*.venv/
+
+# 忽略 Python 快取
+__pycache__/
+*.pyc
+
+# 忽略 IDE/編輯器設定
+.vscode/
+.idea/
+
+local_image_batches/batch02
+
 # Add other ignores below if needed
