@@ -1,4 +1,4 @@
-# 草莓病蟲害辨識系統 - 後端 API (Django)
+# 草莓病蟲害辨識系統 - 後端 API (Django+ YOLO)
 
 [![Python](https://img.shields.io/badge/Python-3.9%2B-blue?logo=python)](https://www.python.org/)
 [![Django](https://img.shields.io/badge/Django-4.x-darkgreen?logo=django)](https://www.djangoproject.com/)
@@ -6,118 +6,184 @@
 [![Celery](https://img.shields.io/badge/Celery-Tasks-green?logo=celery)](https://docs.celeryq.dev/)
 [![Docker](https://img.shields.io/badge/Docker-Containerized-blue?logo=docker)](https://www.docker.com/)
 
-這是草莓病蟲害辨識系統的後端 RESTful API 服務，使用 Django 和 Django REST framework 建構。它負責處理圖片辨識請求、管理資料庫、執行背景任務 (透過 Celery)，並提供 API 接口供前端或其他客戶端呼叫。
+這是草莓病蟲害辨識系統的 **後端 API 伺服器**。  
+本專案使用 **Django** 框架建構，核心功能是透過 **YOLO (You Only Look Once)** 物件偵測模型 (`yolo/best.pt`)  
+來辨識上傳圖片中的草莓病徵。
 
-**前端專案連結:**
-* [Strawberry-detect-frontend (Vue.js)](https://github.com/Nick921003/Strawberry-detect-frontend.git)
-
----
-
-## ✨ 核心功能
-
-* **圖片辨識 API:**
-    * 接收手動上傳的圖片 (單張/多張)。
-    * 觸發 S3 資料夾的批次辨識任務。
-    * 使用 YOLO 模型進行草莓病蟲害推論。
-    * 計算嚴重程度分數。
-    * 將原始圖片、標註後圖片和結果儲存至 S3 (或本地) 與資料庫。
-* **歷史紀錄 API:**
-    * 提供手動上傳和批次任務的歷史紀錄查詢 (支援分頁)。
-    * 提供單筆紀錄和批次任務的詳細資料查詢 (包含巢狀結果)。
-* **背景任務處理 (Celery):**
-    * 非同步處理 S3 批次辨識任務，避免阻塞 API 請求。
-    * 使用 Celery Beat 執行定期的舊資料清理任務。
-* **資料保留策略:**
-    * 可設定手動上傳和批次任務的保留天數或數量。
-    * 手動上傳後**立即**清理舊紀錄，維持設定數量。
-    * 批次任務完成後**立即**清理舊批次，維持設定數量。
-* **Docker 化部署:**
-    * 使用 Docker Compose 整合 Django (Gunicorn)、Nginx、PostgreSQL、Redis、Celery Worker 和 Celery Beat，簡化部署流程。
-
-## 🔧 主要 API 端點
-
-所有 API 端點皆位於 `/api/process/` 基礎路徑下：
-
-* **`POST /api/process/upload/`**: 手動上傳圖片 (multipart/form-data)。
-    * 請求體: `images` 欄位包含一個或多個圖片檔案。
-    * 回應: `201 Created`，包含一個或多個 `DetectionRecordDetail` 物件。
-* **`POST /api/process/process_s3_folder/`**: 觸發 S3 批次處理任務。
-    * 請求體 (JSON): `{ "s3_bucket_name": "...", "s3_folder_prefix": "..." }`
-    * 回應: `202 Accepted`，包含 `message` 和 `celery_task_id`。
-* **`GET /api/process/history/manual/`**: 獲取手動上傳歷史紀錄列表 (支援分頁 `?page=...`)。
-    * 回應: 分頁物件，`results` 包含 `DetectionRecordList` 物件陣列。
-* **`GET /api/process/history/batch/`**: 獲取批次任務歷史列表 (支援分頁 `?page=...`)。
-    * 回應: 分頁物件，`results` 包含 `BatchDetectionJobList` 物件陣列。
-* **`GET /api/process/record/{record_id}/`**: 獲取單筆辨識紀錄詳情。
-    * 回應: `DetectionRecordDetail` 物件。
-* **`GET /api/process/batch/{batch_id}/`**: 獲取單筆批次任務詳情 (包含巢狀的 `detection_records`)。
-    * 回應: `BatchDetectionJobDetail` 物件。
-
-*(詳細的 Serializer 欄位請參考 `detector/api/serializers.py`)*
-
-## 🐳 使用 Docker Compose 運行 (推薦)
-
-**環境需求:**
-
-* [Docker](https://www.docker.com/products/docker-desktop/)
-* [Docker Compose](https://docs.docker.com/compose/install/)
-
-**步驟:**
-
-1.  **Clone 儲存庫:**
-    ```bash
-    git clone [https://github.com/Nick921003/StrawberryDetect_Web.git](https://github.com/Nick921003/StrawberryDetect_Web.git)
-    cd StrawberryDetect_Web
-    ```
-
-2.  **建立環境變數檔案:**
-    * 複製 `.env.example` (如果有的話) 或手動建立 `.env` 檔案。
-    * 填寫必要的環境變數，至少包含：
-        * `SECRET_KEY` (Django 金鑰，可自行生成)
-        * `DEBUG` (設為 `1` 開發，`0` 生產)
-        * `ALLOWED_HOSTS` (例如 `localhost,127.0.0.1`)
-        * `CSRF_TRUSTED_ORIGINS` (例如 `http://localhost:8000,http://127.0.0.1:8000`)
-        * `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` (資料庫設定)
-        * `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_STORAGE_BUCKET_NAME`, `AWS_S3_REGION_NAME` (S3 設定)
-        * `CORS_ALLOWED_ORIGINS` (**重要!** 必須包含前端應用的來源 URL，例如 `http://127.0.0.1:5173` 或部署後的 GitHub Pages URL)
-
-3.  **建置並啟動容器:**
-    ```bash
-    docker-compose up -d --build
-    ```
-
-4.  **執行資料庫遷移:**
-    ```bash
-    docker-compose exec web python manage.py migrate
-    ```
-
-5.  **建立超級使用者 (可選):**
-    ```bash
-    docker-compose exec web python manage.py createsuperuser
-    ```
-
-6.  **訪問:**
-    * API 服務: `http://localhost:8000/api/process/`
-    * Admin 後台: `http://localhost:8000/admin/`
-
-## ⚙️ AWS S3 設定指引
-
-詳細的 IAM 權限、Bucket Policy 和 CORS 設定範例，請參考 `/doc/aws/` 目錄下的文件 ([explain.md](doc/aws/explain.md), [iam_policy_example.json](doc/aws/iam_policy_example.json), [s3_bucket_policy_example.json](doc/aws/s3_bucket_policy_example.json), [s3_cors_example.json](doc/aws/s3_cors_example.json))。
-
-**重點提醒:**
-
-* **CORS 設定:** 務必在 AWS S3 Bucket 的 CORS 設定中，允許來自前端應用程式來源 (例如 `http://127.0.0.1:5173` 或 GitHub Pages URL) 的 `GET`, `POST`, `PUT`, `HEAD` 等請求，並允許必要的標頭 (例如 `Authorization`, `Content-Type`)。同時，Django `settings.py` 中的 `CORS_ALLOWED_ORIGINS` 也需要包含前端來源。
-
-## 🗑️ 資料保留策略設定
-
-可在 `.env` 或 `detector_project/settings.py` 中調整以下參數：
-
-* `MANUAL_RECORDS_TO_KEEP`: 手動上傳紀錄保留數量 (每次上傳後即時清理)。
-* `DAYS_TO_KEEP_MANUAL_RECORDS`: 手動上傳紀錄保留天數 (由排程任務清理)。
-* `BATCH_JOBS_TO_KEEP_BY_COUNT`: 批次任務記錄保留數量 (批次完成後即時清理)。
-* `DAYS_TO_KEEP_BATCHES`: 批次任務記錄保留天數 (由排程任務清理)。
-* Celery Beat 排程 (`CELERY_BEAT_SCHEDULE`): 設定定期清理任務的執行時間。
+本系統設計為一個 **RESTful API 服務**，由前端專案  
+👉 [**Strawberry-detect-frontend (Vue.js)**](https://github.com/Nick921003/Strawberry-detect-frontend) 呼叫。
 
 ---
 
-*(你可以視情況補充更多資訊)*
+## 🌐 公開 API 端點
+> https://api.strawberrydetect.com/api/process
+
+---
+
+## ☁️ 生產環境架構 (AWS)
+
+本專案部署於 **AWS**，採用多層次、高可用性架構，以確保效能與穩定性。
+
+### 🖥️ 前端 (Client)
+- **服務**：GitHub Pages  
+- **網址**：https://nick921003.github.io/Strawberry-detect-frontend/  
+- **CI/CD**：使用 GitHub Actions 自動部署，建置時會注入生產 API 位址。
+
+### 🌐 網路閘道 (Gateway)
+- **服務**：AWS Application Load Balancer (ALB)  
+- **網址**：`api.strawberrydetect.com`  
+- **憑證**：AWS Certificate Manager (ACM)  
+- **職責**：
+  - 處理 HTTPS (SSL 終止)
+  - 解決混合內容錯誤
+  - 將 443 端口流量轉發到 EC2 實例的 8000 端口
+
+### 🧩 應用程式伺服器 (Server)
+- **服務**：AWS EC2  
+- **運行方式**：使用 `docker-compose.yml` 啟動多容器堆疊  
+- **健康檢查**：ALB 透過 `GET /admin/`（回傳 200 或 302）確認 Django 存活
+
+### 🗂️ 檔案儲存 (Storage)
+- **服務**：AWS S3  
+- **職責**：透過 `django-storages` 儲存所有使用者上傳的原始圖片與辨識後圖片
+
+---
+
+## 🐳 Docker Compose 服務堆疊
+
+在 EC2 實例內部，`docker-compose.yml` 負責編排以下服務：
+
+| 服務 | 說明 |
+|------|------|
+| **nginx** | 內部反向代理，接收來自 ALB 的 8000 端口流量並轉發給 web。設定高超時 (3000s) 以處理大型檔案。 |
+| **web** | Gunicorn 應用伺服器，運行 Django 應用 (載入 YOLO 模型)。Gunicorn 超時設定為 120s。 |
+| **db** | PostgreSQL 資料庫，儲存所有辨識紀錄 (`DetectionRecord`) 與批次任務 (`BatchDetectionJob`)。 |
+| **redis** | Celery 使用的訊息中介 (Broker)，儲存任務隊列。 |
+| **celery_worker** | 背景任務執行緒，處理 S3 批次辨識任務 (`process_s3_batch_task`)，避免 API 超時。 |
+| **celery_beat** | 定時任務排程器，用於未來功能（如 S3 定期掃描或舊資料清理）。 |
+
+---
+
+## ✨ API 主要功能
+
+後端由 **Django REST Framework (DRF)** 驅動，主要端點如下：
+
+### 🧠 模型載入
+- 伺服器啟動時 (Gunicorn) 預先載入 `yolo/best.pt` 模型，加速回應速度。
+
+### 📤 即時辨識 (上傳圖片)
+`POST /api/process/upload/`  
+- 接收前端上傳的單張或多張圖片  
+- 同步執行 YOLO 辨識  
+- 回傳結果 (標註圖片 URL、JSON 數據) 並儲存至資料庫  
+- 回應：`201 Created`
+
+### ☁️ S3 批次觸發 (非同步任務)
+`POST /api/process/trigger_s3_batch/`  
+- 接收 S3 儲存桶與資料夾路徑  
+- 將任務推送至 Redis，由 Celery 背景執行 (`tasks.py: process_s3_batch_task`)  
+- 立即回傳 Celery **Task ID**
+
+### 🕒 歷史紀錄查詢
+- `GET /api/process/` → 手動上傳紀錄列表（支援分頁）  
+- `GET /api/process/{id}/` → 單筆手動紀錄詳情  
+- `GET /api/process/batch_jobs/` → 批次任務列表（支援分頁）  
+- `GET /api/process/batch_jobs/{id}/` → 單筆批次任務詳情（含所有辨識紀錄）
+
+### 🔒 安全性設定
+已精確設定：
+```python
+CORS_ALLOWED_ORIGINS = ['https://nick921003.github.io']
+CSRF_TRUSTED_ORIGINS = ['https://nick921003.github.io']
+```
+
+---
+
+## 🛠️ 技術棧
+
+| 類別 | 技術 |
+|------|------|
+| 框架 | Django, Django REST Framework |
+| AI 模型 | YOLO (Ultralytics) |
+| WSGI 伺服器 | Gunicorn |
+| 反向代理 | Nginx |
+| 資料庫 | PostgreSQL |
+| 非同步任務 | Celery + Redis |
+| 雲端服務 | AWS EC2, S3, ALB, ACM |
+| 檔案儲存 | django-storages (連接 S3) |
+| 環境管理 | Docker + Docker Compose |
+| 環境變數管理 | python-dotenv (.env) |
+
+---
+
+## 🚀 本地開發設定
+
+### 1️⃣ Clone 儲存庫
+```bash
+git clone https://github.com/Nick921003/StrawberryDetect_Web.git
+cd StrawberryDetect_Web
+```
+
+### 2️⃣ 下載 YOLO 模型
+請確保 `yolo/best.pt` 模型檔案存在。  
+若不存在，請從您訓練的地方下載並放入 `yolo/` 資料夾中。
+
+### 3️⃣ 建立 `.env` 檔案
+在專案根目錄（與 `docker-compose.yml` 同層）建立 `.env`，範例如下：
+
+```bash
+# Django 設定
+DEBUG=1
+SECRET_KEY=your_local_secret_key_12345
+ALLOWED_HOSTS=localhost,127.0.0.1
+
+# 資料庫
+POSTGRES_DB=strawberry_db
+POSTGRES_USER=strawberry_user
+POSTGRES_PASSWORD=strawberry_pass
+POSTGRES_HOST=db
+POSTGRES_PORT=5432
+
+# Redis
+REDIS_HOST=redis
+REDIS_PORT=6379
+
+# 本地 CORS/CSRF (允許 Vue 開發伺服器)
+CORS_ALLOWED_ORIGINS=http://127.0.0.1:5173,http://localhost:5173
+CSRF_TRUSTED_ORIGINS=http://127.0.0.1:5173,http://localhost:5173
+
+# AWS S3 (可選)
+# AWS_ACCESS_KEY_ID=...
+# AWS_SECRET_ACCESS_KEY=...
+# AWS_STORAGE_BUCKET_NAME=your-s3-bucket-name
+# AWS_S3_REGION_NAME=your-region
+# AWS_S3_CUSTOM_DOMAIN=...
+```
+
+### 4️⃣ 啟動 Docker Compose
+確保 **Docker Desktop**（或 Docker Engine）已啟動。
+
+```bash
+docker-compose up --build
+```
+> `--build` 會強制重新建置 Docker image。
+
+### 5️⃣ 執行資料庫遷移
+等待 `web` 服務啟動後，開啟新的終端機視窗：
+
+```bash
+docker-compose exec web python manage.py migrate
+```
+
+### 6️⃣ 建立超級使用者（可選）
+用於登入 Django Admin 後台：
+
+```bash
+docker-compose exec web python manage.py createsuperuser
+```
+
+### 7️⃣ 訪問本地服務
+- **API (Nginx)**： [http://127.0.0.1:8000/api/process/](http://127.0.0.1:8000/api/process/)  
+- **Admin 後台**： [http://127.0.0.1:8000/admin/](http://127.0.0.1:8000/admin/)
+
+---
